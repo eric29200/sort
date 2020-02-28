@@ -7,7 +7,7 @@
 
 static int chunk_id = 1;
 
-struct chunk_t *chunk_create()
+struct chunk_t *chunk_create(FILE *fp_output)
 {
 	struct chunk_t *chunk;
 
@@ -18,15 +18,21 @@ struct chunk_t *chunk_create()
 	}
 
 	chunk->id = chunk_id++;
-	chunk->fp = tmpfile();
-	if (!chunk->fp) {
-		perror("tmpfile");
-		free(chunk);
-		return NULL;
-	}
 	chunk->lines = NULL;
 	chunk->nb_lines = 0;
 	chunk->size = 0;
+
+	/* create temp file if no output file specified */
+	if (!fp_output) {
+		chunk->fp = tmpfile();
+		if (!chunk->fp) {
+			perror("tmpfile");
+			free(chunk);
+			return NULL;
+		}
+	} else {
+		chunk->fp = fp_output;
+	}
 
 	return chunk;
 }

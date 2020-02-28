@@ -6,7 +6,8 @@
 #define LINE_SIZE	4096
 
 struct data_file_t {
-	char *path;
+	char *input_path;
+	char *output_path;
 	struct chunk_t **chunks;
 	size_t nb_chunks;
 	ssize_t chunk_size;
@@ -14,7 +15,8 @@ struct data_file_t {
 	int key_field;
 };
 
-struct data_file_t *data_file_create(const char *path,
+struct data_file_t *data_file_create(const char *input_path,
+				     const char *output_path,
 				     const ssize_t chunk_size,
 				     const char field_delim,
 				     const int key_field);

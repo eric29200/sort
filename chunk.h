@@ -11,7 +11,7 @@ struct chunk_t {
 	ssize_t size;
 };
 
-struct chunk_t *chunk_create();
+struct chunk_t *chunk_create(FILE *fp_output);
 int chunk_add_line(struct chunk_t *chunk, const char *line,
 		   const char field_delim, const int key_field);
 void chunk_sort(struct chunk_t *chunk,

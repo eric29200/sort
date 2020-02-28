@@ -30,6 +30,7 @@ static char *line_extract_key(const char *value, const char field_delim,
 		return NULL;
 
 	strncpy(key, value + start, end - start);
+
 	return key;
 }
 
