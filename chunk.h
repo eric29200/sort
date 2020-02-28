@@ -4,7 +4,6 @@
 #include "line.h"
 
 struct chunk_t {
-	int id;
 	FILE *fp;
 	struct line_t **lines;
 	size_t nb_lines;
@@ -12,10 +11,9 @@ struct chunk_t {
 };
 
 struct chunk_t *chunk_create(FILE *fp_output);
-int chunk_add_line(struct chunk_t *chunk, const char *line,
-		   const char field_delim, const int key_field);
-void chunk_sort(struct chunk_t *chunk,
-		int (*compar)(const void *, const void *));
+void chunk_add_line(struct chunk_t *chunk, const char *line,
+		   char field_delim, int key_field);
+void chunk_sort(struct chunk_t *chunk);
 int chunk_write(struct chunk_t *chunk);
 void chunk_clear(struct chunk_t *chunk);
 void chunk_destroy(struct chunk_t *chunk);

@@ -3,21 +3,14 @@
 #include <string.h>
 #include <errno.h>
 
+#include "mem.h"
 #include "chunk.h"
-
-static int chunk_id = 1;
 
 struct chunk_t *chunk_create(FILE *fp_output)
 {
 	struct chunk_t *chunk;
 
-	chunk = (struct chunk_t *) malloc(sizeof(struct chunk_t));
-	if (!chunk) {
-		perror("malloc");
-		return NULL;
-	}
-
-	chunk->id = chunk_id++;
+	chunk = sort_malloc(sizeof(struct chunk_t));
 	chunk->lines = NULL;
 	chunk->nb_lines = 0;
 	chunk->size = 0;
@@ -27,7 +20,7 @@ struct chunk_t *chunk_create(FILE *fp_output)
 		chunk->fp = tmpfile();
 		if (!chunk->fp) {
 			perror("tmpfile");
-			free(chunk);
+			sort_free(chunk);
 			return NULL;
 		}
 	} else {
@@ -37,54 +30,41 @@ struct chunk_t *chunk_create(FILE *fp_output)
 	return chunk;
 }
 
-int chunk_add_line(struct chunk_t *chunk, const char *line,
-		   const char field_delim, const int key_field)
+void chunk_add_line(struct chunk_t *chunk, const char *line,
+		   char field_delim, int key_field)
 {
 	struct line_t *new_line;
 
 	if (!chunk || !line)
-		return -1;
+		return;
 
-	chunk->lines = (struct line_t **) realloc(chunk->lines,
+	chunk->lines = (struct line_t **) sort_realloc(chunk->lines,
 						  sizeof(struct line_t *)
 						  * (chunk->nb_lines + 1));
-	if (!chunk->lines) {
-		perror("malloc");
-		return -ENOMEM;
-	}
-
 	new_line = line_create(line, field_delim, key_field);
-	if (!new_line) {
-		perror("strdup");
-		return -ENOMEM;
-	}
-
-
 	chunk->lines[chunk->nb_lines] = new_line;
 	chunk->nb_lines += 1;
 	chunk->size += sizeof(new_line) + strlen(new_line->value)
 		+ strlen(new_line->key);
-	return 0;
 }
 
-void chunk_sort(struct chunk_t *chunk, int (*compar)(const void *, const void *))
+void chunk_sort(struct chunk_t *chunk)
 {
 	if (chunk && chunk->nb_lines > 0)
 		qsort(chunk->lines, chunk->nb_lines, sizeof(struct line_t *),
-		      compar);
+		      line_compare);
 }
 
 int chunk_write(struct chunk_t *chunk)
 {
 	size_t i;
 
-	if (!chunk)
-		return -1;
-
-	for (i = 0; i < chunk->nb_lines; i++) {
-		if (!fputs(chunk->lines[i]->value, chunk->fp)) {
-			perror("fputs");
-			return -1;
+	if (chunk) {
+		for (i = 0; i < chunk->nb_lines; i++) {
+			if (!fputs(chunk->lines[i]->value, chunk->fp)) {
+				perror("fputs");
+				return -1;
+			}
 		}
 	}
 
@@ -100,7 +80,7 @@ void chunk_clear(struct chunk_t *chunk)
 			for (i = 0; i < chunk->nb_lines; i++)
 				line_destroy(chunk->lines[i]);
 
-			free(chunk->lines);
+			sort_free(chunk->lines);
 			chunk->lines = NULL;
 		}
 
@@ -113,6 +93,6 @@ void chunk_destroy(struct chunk_t *chunk)
 	if (chunk) {
 		fclose(chunk->fp);
 		chunk_clear(chunk);
-		free(chunk);
+		sort_free(chunk);
 	}
 }

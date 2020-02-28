@@ -3,11 +3,11 @@
 
 #include "data_file.h"
 
-#define INPUT_FILE	"/home/ebegot/dev/data/test.txt"
-#define OUTPUT_FILE	"/home/ebegot/dev/data/test.txt.sorted"
+#define INPUT_FILE	"/home/eric/dev/data/NAVIRES-MOIS-MAREES-JOUR-IFR_2019.txt"
+#define OUTPUT_FILE	"/home/eric/dev/data/NAVIRES-MOIS-MAREES-JOUR-IFR_2019.txt.sorted"
 #define FIELD_DELIM	'\t'
 #define KEY_FIELD	6
-#define CHUNK_SIZE	20 * 1024 * 1000
+#define CHUNK_SIZE	200 * 1024 * 1000
 
 int main(int argc, char **argv)
 {

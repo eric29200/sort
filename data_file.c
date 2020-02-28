@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "mem.h"
 #include "data_file.h"
 
 struct data_file_t *data_file_create(const char *input_path,
@@ -12,27 +13,10 @@ struct data_file_t *data_file_create(const char *input_path,
 {
 	struct data_file_t *data_file;
 
-	data_file = (struct data_file_t *) malloc(sizeof(struct data_file_t));
-	if (!data_file) {
-		perror("malloc");
-		return NULL;
-	}
-
-	data_file->input_path = strdup(input_path);
-	if (!data_file->input_path) {
-		perror("strdup");
-		free(data_file);
-		return NULL;
-	}
-
-	data_file->output_path = strdup(output_path);
-	if (!data_file->output_path) {
-		perror("strdup");
-		free(data_file->input_path);
-		free(data_file);
-		return NULL;
-	}
-
+	data_file = (struct data_file_t *)
+		sort_malloc(sizeof(struct data_file_t));
+	data_file->input_path = sort_strdup(input_path);
+	data_file->output_path = sort_strdup(output_path);
 	data_file->nb_chunks = 0;
 	data_file->chunk_size = chunk_size;
 	data_file->field_delim = field_delim;
@@ -43,15 +27,10 @@ struct data_file_t *data_file_create(const char *input_path,
 
 static struct chunk_t *data_file_add_chunk(struct data_file_t *data_file)
 {
-	data_file->chunks = (struct chunk_t **) realloc(data_file->chunks,
+	data_file->chunks = (struct chunk_t **) sort_realloc(data_file->chunks,
 							sizeof(struct chunk_t *)
 							* (data_file->nb_chunks
 							   + 1));
-	if (!data_file->chunks) {
-		perror("realloc");
-		return NULL;
-	}
-
 	data_file->chunks[data_file->nb_chunks] = chunk_create(NULL);
 	if (!data_file->chunks[data_file->nb_chunks])
 		return NULL;
@@ -80,21 +59,18 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 		if (!current_chunk) {
 			current_chunk = data_file_add_chunk(data_file);
 			if (!current_chunk) {
-				ret = -ENOMEM;
+				ret = -1;
 				goto out;
 			}
 		}
 
 		/* add line to current chunk */
-		ret = chunk_add_line(current_chunk, line,
-				     data_file->field_delim,
-				     data_file->key_field);
-		if (ret)
-			goto out;
+		chunk_add_line(current_chunk, line, data_file->field_delim,
+			       data_file->key_field);
 
 		/* write chunk */
 		if (current_chunk->size >= data_file->chunk_size) {
-			chunk_sort(current_chunk, line_compar);
+			chunk_sort(current_chunk);
 			ret = chunk_write(current_chunk);
 			chunk_clear(current_chunk);
 			current_chunk = NULL;
@@ -105,7 +81,7 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 
 	/* write last chunk */
 	if (current_chunk) {
-		chunk_sort(current_chunk, line_compar);
+		chunk_sort(current_chunk);
 		ret = chunk_write(current_chunk);
 		chunk_clear(current_chunk);
 	}
@@ -119,7 +95,7 @@ int data_file_merge_sort(struct data_file_t *data_file)
 	FILE *fp_output;
 	struct chunk_t *chunk;
 	char *chunks_status;
-	size_t nb_remaining_chunks;
+	size_t nb_rem_chunks;
 	char line[LINE_SIZE];
 	size_t i;
 	int ret = 0;
@@ -139,13 +115,8 @@ int data_file_merge_sort(struct data_file_t *data_file)
 	}
 
 	/* create an array with chunks status */
-	nb_remaining_chunks = data_file->nb_chunks;
-	chunks_status = (char *) malloc(sizeof(char) * nb_remaining_chunks);
-	if (!chunks_status) {
-		perror("malloc");
-		chunk_destroy(chunk);
-		return -1;
-	}
+	nb_rem_chunks = data_file->nb_chunks;
+	chunks_status = (char *) sort_malloc(sizeof(char) * nb_rem_chunks);
 
 	/* init chunks list */
 	for (i = 0; i < data_file->nb_chunks; i++)
@@ -160,7 +131,7 @@ int data_file_merge_sort(struct data_file_t *data_file)
 		}
 	}
 
-	while (nb_remaining_chunks > 0) {
+	while (nb_rem_chunks > 0) {
 		/* peek a line of each chunk */
 		for (i = 0; i < data_file->nb_chunks; i++) {
 			if (chunks_status[i] == 0)
@@ -168,20 +139,18 @@ int data_file_merge_sort(struct data_file_t *data_file)
 
 			if (fgets(line, LINE_SIZE, data_file->chunks[i]->fp)) {
 				/* add line to chunk */
-				ret = chunk_add_line(chunk, line,
-						     data_file->field_delim,
-						     data_file->key_field);
-				if (ret)
-					goto out;
+				chunk_add_line(chunk, line,
+					       data_file->field_delim,
+					       data_file->key_field);
 			} else {
-				nb_remaining_chunks--;
+				nb_rem_chunks--;
 				chunks_status[i] = 0;
 			}
 		}
 
 		/* if chunk is full, compute it */
 		if (chunk->size >= data_file->chunk_size) {
-			chunk_sort(chunk, line_compar);
+			chunk_sort(chunk);
 			ret = chunk_write(chunk);
 			if (ret)
 				goto out;
@@ -191,14 +160,14 @@ int data_file_merge_sort(struct data_file_t *data_file)
 
 	/* compute last chunk */
 	if (chunk->size > 0) {
-		chunk_sort(chunk, line_compar);
+		chunk_sort(chunk);
 		ret = chunk_write(chunk);
 		if (ret)
 			goto out;
 		chunk_clear(chunk);
 	}
 out:
-	free(chunks_status);
+	sort_free(chunks_status);
 	chunk_destroy(chunk);
 	return ret;
 }
@@ -219,17 +188,13 @@ void data_file_destroy(struct data_file_t *data_file)
 	size_t i;
 
 	if (data_file) {
-		if (data_file->input_path)
-			free(data_file->input_path);
-
-		if (data_file->output_path)
-			free(data_file->output_path);
-
+		sort_free(data_file->input_path);
+		sort_free(data_file->output_path);
 		if (data_file->chunks) {
 			for (i = 0; i < data_file->nb_chunks; i++)
-				free(data_file->chunks[i]);
+				sort_free(data_file->chunks[i]);
 
-			free(data_file->chunks);
+			sort_free(data_file->chunks);
 		}
 	}
 }
