@@ -58,6 +58,6 @@ void line_destroy(struct line_t *line)
 {
 	if (line) {
 		sort_free(line->value);
-		sort_free(line);
+		free(line);
 	}
 }

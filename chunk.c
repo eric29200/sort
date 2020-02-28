@@ -6,7 +6,7 @@
 #include "mem.h"
 #include "chunk.h"
 
-struct chunk_t *chunk_create(FILE *fp_output)
+struct chunk_t *chunk_create(void)
 {
 	struct chunk_t *chunk;
 
@@ -16,15 +16,11 @@ struct chunk_t *chunk_create(FILE *fp_output)
 	chunk->size = 0;
 
 	/* create temp file if no output file specified */
-	if (!fp_output) {
-		chunk->fp = tmpfile();
-		if (!chunk->fp) {
-			perror("tmpfile");
-			sort_free(chunk);
-			return NULL;
-		}
-	} else {
-		chunk->fp = fp_output;
+	chunk->fp = tmpfile();
+	if (!chunk->fp) {
+		perror("tmpfile");
+		sort_free(chunk);
+		return NULL;
 	}
 
 	return chunk;
@@ -44,8 +40,7 @@ void chunk_add_line(struct chunk_t *chunk, const char *line,
 	new_line = line_create(line, field_delim, key_field);
 	chunk->lines[chunk->nb_lines] = new_line;
 	chunk->nb_lines += 1;
-	chunk->size += sizeof(new_line) + strlen(new_line->value)
-		+ strlen(new_line->key);
+	chunk->size += sizeof(new_line) + strlen(new_line->value);
 }
 
 void chunk_sort(struct chunk_t *chunk)
@@ -80,7 +75,7 @@ void chunk_clear(struct chunk_t *chunk)
 			for (i = 0; i < chunk->nb_lines; i++)
 				line_destroy(chunk->lines[i]);
 
-			sort_free(chunk->lines);
+			free(chunk->lines);
 			chunk->lines = NULL;
 		}
 
@@ -93,6 +88,6 @@ void chunk_destroy(struct chunk_t *chunk)
 	if (chunk) {
 		fclose(chunk->fp);
 		chunk_clear(chunk);
-		sort_free(chunk);
+		free(chunk);
 	}
 }

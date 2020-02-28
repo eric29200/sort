@@ -92,84 +92,17 @@ out:
 
 int data_file_merge_sort(struct data_file_t *data_file)
 {
-	FILE *fp_output;
-	struct chunk_t *chunk;
-	char *chunks_status;
-	size_t nb_rem_chunks;
-	char line[LINE_SIZE];
-	size_t i;
-	int ret = 0;
-
-	/* open output file */
-	fp_output = fopen(data_file->output_path, "w");
-	if (!fp_output) {
-		perror("fopen");
-		return -1;
-	}
-
-	/* create output chunk */
-	chunk = chunk_create(fp_output);
-	if (!chunk) {
-		fclose(fp_output);
-		return -1;
-	}
-
-	/* create an array with chunks status */
-	nb_rem_chunks = data_file->nb_chunks;
-	chunks_status = (char *) sort_malloc(sizeof(char) * nb_rem_chunks);
-
-	/* init chunks list */
-	for (i = 0; i < data_file->nb_chunks; i++)
-		chunks_status[i] = 1;
-
-	/* rewind each chunk */
-	for (i = 0; i < data_file->nb_chunks; i++) {
-		if (fseek(data_file->chunks[i]->fp, 0, SEEK_SET) == -1) {
-			perror("fseek");
-			ret = -1;
-			goto out;
-		}
-	}
-
-	while (nb_rem_chunks > 0) {
-		/* peek a line of each chunk */
-		for (i = 0; i < data_file->nb_chunks; i++) {
-			if (chunks_status[i] == 0)
-				continue;
-
-			if (fgets(line, LINE_SIZE, data_file->chunks[i]->fp)) {
-				/* add line to chunk */
-				chunk_add_line(chunk, line,
-					       data_file->field_delim,
-					       data_file->key_field);
-			} else {
-				nb_rem_chunks--;
-				chunks_status[i] = 0;
-			}
-		}
-
-		/* if chunk is full, compute it */
-		if (chunk->size >= data_file->chunk_size) {
-			chunk_sort(chunk);
-			ret = chunk_write(chunk);
-			if (ret)
-				goto out;
-			chunk_clear(chunk);
-		}
-	}
-
-	/* compute last chunk */
-	if (chunk->size > 0) {
-		chunk_sort(chunk);
-		ret = chunk_write(chunk);
-		if (ret)
-			goto out;
-		chunk_clear(chunk);
-	}
-out:
-	sort_free(chunks_status);
-	chunk_destroy(chunk);
-	return ret;
+	/*
+	 * TODO : 
+	 * 1 - open input file
+	 * 2 - rewind each chunk
+	 * 3 - peek a line from each chunk
+	 * 4 - find minimum line
+	 * 5 - write it on disk
+	 * 6 - peek another line from chunk read
+	 * 7 - continue
+	 */
+	return 0;
 }
 
 int data_file_sort(struct data_file_t *data_file)
