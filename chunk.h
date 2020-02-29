@@ -11,7 +11,7 @@ struct chunk_t {
 	struct line_t *current_line;
 };
 
-struct chunk_t *chunk_create();
+struct chunk_t *chunk_create(FILE *fp);
 void chunk_add_line(struct chunk_t *chunk, const char *line,
 		   char field_delim, int key_field);
 void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_field);

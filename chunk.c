@@ -6,7 +6,7 @@
 #include "mem.h"
 #include "chunk.h"
 
-struct chunk_t *chunk_create(void)
+struct chunk_t *chunk_create(FILE *fp)
 {
 	struct chunk_t *chunk;
 
@@ -16,29 +16,33 @@ struct chunk_t *chunk_create(void)
 	chunk->size = 0;
 	chunk->current_line = NULL;
 
-	/* create temp file if no output file specified */
-	chunk->fp = tmpfile();
-	if (!chunk->fp) {
-		perror("tmpfile");
-		sort_free(chunk);
-		return NULL;
+	if (fp) {
+		chunk->fp = fp;
+	} else {
+		/* create temp file if no output file specified */
+		chunk->fp = tmpfile();
+		if (!chunk->fp) {
+			perror("tmpfile");
+			sort_free(chunk);
+			return NULL;
+		}
 	}
 
 	return chunk;
 }
 
-void chunk_add_line(struct chunk_t *chunk, const char *line,
+void chunk_add_line(struct chunk_t *chunk, const char *value,
 		   char field_delim, int key_field)
 {
 	struct line_t *new_line;
 
-	if (!chunk || !line)
+	if (!chunk || !value)
 		return;
 
+	new_line = line_create(value, field_delim, key_field);
 	chunk->lines = (struct line_t **) sort_realloc(chunk->lines,
 						  sizeof(struct line_t *)
 						  * (chunk->nb_lines + 1));
-	new_line = line_create(line, field_delim, key_field);
 	chunk->lines[chunk->nb_lines] = new_line;
 	chunk->nb_lines += 1;
 	chunk->size += sizeof(new_line) + strlen(new_line->value);
@@ -46,6 +50,8 @@ void chunk_add_line(struct chunk_t *chunk, const char *line,
 
 void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_field) {
 	char line[LINE_SIZE];
+
+	line_destroy(chunk->current_line);
 
 	if (fgets(line, LINE_SIZE, chunk->fp))
 		chunk->current_line = line_create(line, field_delim, key_field);

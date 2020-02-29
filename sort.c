@@ -3,8 +3,8 @@
 
 #include "data_file.h"
 
-#define INPUT_FILE	"/home/eric/dev/data/NAVIRES-MOIS-MAREES-JOUR-IFR_2018.txt"
-#define OUTPUT_FILE	"/home/eric/dev/data/NAVIRES-MOIS-MAREES-JOUR-IFR_2018.txt.sorted"
+#define INPUT_FILE	"/home/eric/dev/data/test.txt"
+#define OUTPUT_FILE	"/home/eric/dev/data/test.txt.sorted"
 #define FIELD_DELIM	'\t'
 #define KEY_FIELD	6
 

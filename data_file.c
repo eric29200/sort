@@ -82,6 +82,18 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 	/* write last chunk */
 	if (current_chunk) {
 		chunk_sort(current_chunk);
+
+		/* if only one chunk : write directly to the output */
+		if (data_file->nb_chunks == 1) {
+			fclose(current_chunk->fp);
+			current_chunk->fp = fopen(data_file->output_path, "w");
+			if (!current_chunk->fp) {
+				perror("fopen");
+				ret = -1;
+				goto out;
+			}
+		}
+
 		ret = chunk_write(current_chunk);
 		chunk_clear(current_chunk);
 	}
@@ -93,15 +105,19 @@ out:
 int data_file_merge_sort(struct data_file_t *data_file)
 {
 	FILE *fp_output;
+	struct chunk_t *global_chunk;
 	size_t i;
 	int ret = 0;
 
 	/* open output file */
 	fp_output = fopen(data_file->output_path, "w");
 	if (!fp_output) {
-		perror("fp_output");
+		perror("fopen");
 		return -1;
 	}
+
+	/* create a global chunk */
+	global_chunk = chunk_create(fp_output);
 
 	/* rewind each chunk */
 	for (i = 0; i < data_file->nb_chunks; i++) {
@@ -123,19 +139,31 @@ int data_file_merge_sort(struct data_file_t *data_file)
 		if (i == -1)
 			break;
 
-		/* write line to output file */
-		if (!fputs(data_file->chunks[i]->current_line->value,
-			   fp_output)) {
-			perror("fputs");
-			goto out;
-		}
+		/* write line to global chunk */
+		chunk_add_line(global_chunk,
+			       data_file->chunks[i]->current_line->value,
+			       data_file->field_delim, data_file->key_field);
 
 		/* peek a line from min chunk */
 		chunk_peek_line(data_file->chunks[i], data_file->field_delim,
 				data_file->key_field);
+
+		/* write chunk */
+		if (global_chunk->size >= data_file->chunk_size) {
+			ret = chunk_write(global_chunk);
+			chunk_clear(global_chunk);
+			if (ret)
+				goto out;
+		}
+	}
+
+	/* write last chunk */
+	if (global_chunk->size > 0) {
+		ret = chunk_write(global_chunk);
+		chunk_clear(global_chunk);
 	}
 out:
-	fclose(fp_output);
+	chunk_destroy(global_chunk);
 	return ret;
 }
 
@@ -146,6 +174,10 @@ int data_file_sort(struct data_file_t *data_file)
 	ret = data_file_divide_and_sort(data_file);
 	if (ret)
 		return ret;
+
+	/* only one chunk : no need to merge */
+	if (data_file->nb_chunks <= 1)
+		return 0;
 
 	return data_file_merge_sort(data_file);
 }
