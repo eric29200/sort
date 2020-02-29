@@ -14,6 +14,7 @@ struct chunk_t *chunk_create(void)
 	chunk->lines = NULL;
 	chunk->nb_lines = 0;
 	chunk->size = 0;
+	chunk->current_line = NULL;
 
 	/* create temp file if no output file specified */
 	chunk->fp = tmpfile();
@@ -43,11 +44,37 @@ void chunk_add_line(struct chunk_t *chunk, const char *line,
 	chunk->size += sizeof(new_line) + strlen(new_line->value);
 }
 
+void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_field) {
+	char line[LINE_SIZE];
+
+	if (fgets(line, LINE_SIZE, chunk->fp))
+		chunk->current_line = line_create(line, field_delim, key_field);
+	else
+		chunk->current_line = NULL;
+}
+
 void chunk_sort(struct chunk_t *chunk)
 {
 	if (chunk && chunk->nb_lines > 0)
 		qsort(chunk->lines, chunk->nb_lines, sizeof(struct line_t *),
 		      line_compare);
+}
+
+int chunk_min_line(struct chunk_t **chunks, size_t nb_chunks)
+{
+	size_t i;
+	int min = -1;
+
+	for (i = 0; i < nb_chunks; i++) {
+		if (!chunks[i]->current_line)
+			continue;
+
+		if (min == -1 || line_compare(&chunks[i]->current_line,
+					      &chunks[min]->current_line) < 0)
+			min = i;
+	}
+
+	return min;
 }
 
 int chunk_write(struct chunk_t *chunk)
@@ -78,6 +105,9 @@ void chunk_clear(struct chunk_t *chunk)
 			free(chunk->lines);
 			chunk->lines = NULL;
 		}
+
+		if (chunk->current_line)
+			line_destroy(chunk->current_line);
 
 		chunk->nb_lines = 0;
 	}

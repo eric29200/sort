@@ -92,17 +92,51 @@ out:
 
 int data_file_merge_sort(struct data_file_t *data_file)
 {
-	/*
-	 * TODO : 
-	 * 1 - open input file
-	 * 2 - rewind each chunk
-	 * 3 - peek a line from each chunk
-	 * 4 - find minimum line
-	 * 5 - write it on disk
-	 * 6 - peek another line from chunk read
-	 * 7 - continue
-	 */
-	return 0;
+	FILE *fp_output;
+	size_t i;
+	int ret = 0;
+
+	/* open output file */
+	fp_output = fopen(data_file->output_path, "w");
+	if (!fp_output) {
+		perror("fp_output");
+		return -1;
+	}
+
+	/* rewind each chunk */
+	for (i = 0; i < data_file->nb_chunks; i++) {
+		if (fseek(data_file->chunks[i]->fp, 0, SEEK_SET) == -1) {
+			perror("fseek");
+			ret = -1;
+			goto out;
+		}
+	}
+
+	/* peek a line from each buffer */
+	for (i = 0; i < data_file->nb_chunks; i++)
+		chunk_peek_line(data_file->chunks[i], data_file->field_delim,
+				data_file->key_field);
+
+	while (1) {
+		/* compute min line */
+		i = chunk_min_line(data_file->chunks, data_file->nb_chunks);
+		if (i == -1)
+			break;
+
+		/* write line to output file */
+		if (!fputs(data_file->chunks[i]->current_line->value,
+			   fp_output)) {
+			perror("fputs");
+			goto out;
+		}
+
+		/* peek a line from min chunk */
+		chunk_peek_line(data_file->chunks[i], data_file->field_delim,
+				data_file->key_field);
+	}
+out:
+	fclose(fp_output);
+	return ret;
 }
 
 int data_file_sort(struct data_file_t *data_file)

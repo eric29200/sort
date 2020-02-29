@@ -3,8 +3,6 @@
 
 #include "chunk.h"
 
-#define LINE_SIZE	4096
-
 struct data_file_t {
 	char *input_path;
 	char *output_path;

@@ -1,6 +1,8 @@
 #ifndef _LINE_H_
 #define _LINE_H_
 
+#define LINE_SIZE	4096
+
 struct line_t {
 	char *value;
 	char *key;
