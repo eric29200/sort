@@ -9,7 +9,7 @@
 #define KEY_FIELD	6
 #define HEADER		1
 
-static ssize_t chunk_size = (ssize_t) 500 * (ssize_t) 1024 * (ssize_t) 1000;
+static ssize_t chunk_size = (ssize_t) 500 * (ssize_t) 1024 * (ssize_t) 1024;
 
 int main(int argc, char **argv)
 {
