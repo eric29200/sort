@@ -8,8 +8,8 @@
 
 struct data_file_t *data_file_create(const char *input_path,
 				     const char *output_path,
-				     const ssize_t chunk_size,
-				     const char field_delim, const int key_field)
+				     ssize_t chunk_size,
+				     char field_delim, int key_field, int header)
 {
 	struct data_file_t *data_file;
 
@@ -21,6 +21,7 @@ struct data_file_t *data_file_create(const char *input_path,
 	data_file->chunk_size = chunk_size;
 	data_file->field_delim = field_delim;
 	data_file->key_field = key_field;
+	data_file->header = header;
 
 	return data_file;
 }
@@ -52,6 +53,10 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 		perror("fopen");
 		return -1;
 	}
+
+	/* store header */
+	if (data_file->header > 0)
+		fgets(data_file->header_line, LINE_SIZE, fp);
 
 	/* read input file line by line */
 	while(fgets(line, LINE_SIZE, fp)) {
@@ -115,6 +120,10 @@ int data_file_merge_sort(struct data_file_t *data_file)
 		perror("fopen");
 		return -1;
 	}
+
+	/* write header */
+	if (data_file->header > 0)
+		fputs(data_file->header_line, fp_output);
 
 	/* create a global chunk */
 	global_chunk = chunk_create(fp_output);
