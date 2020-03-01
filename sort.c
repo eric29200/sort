@@ -243,7 +243,7 @@ static void data_file_destroy(struct data_file_t *data_file)
 		sort_free(data_file->output_path);
 		if (data_file->chunks) {
 			for (i = 0; i < data_file->nb_chunks; i++)
-				sort_free(data_file->chunks[i]);
+				chunk_destroy(data_file->chunks[i]);
 
 			sort_free(data_file->chunks);
 		}
@@ -416,11 +416,11 @@ int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
 		goto out;
 
 	/* only one chunk : no need to merge */
-	//if (data_file->nb_chunks <= 1)
-	//	goto out;
+	if (data_file->nb_chunks <= 1)
+		goto out;
 
 	/* merge sort */
-	//ret = data_file_merge_sort(data_file);
+	ret = data_file_merge_sort(data_file);
 out:
 	data_file_destroy(data_file);
 	return ret;
