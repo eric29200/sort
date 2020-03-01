@@ -1,8 +1,8 @@
 TARGET  := sort
-CFLAGS  := -Wall -pg
+CFLAGS  := -Wall -O2
 CC      := gcc
 
-sort : mem.o line.o chunk.o data_file.o sort.o
+sort : mem.o sort.o main.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .o: .c 
