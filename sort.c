@@ -416,11 +416,11 @@ int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
 		goto out;
 
 	/* only one chunk : no need to merge */
-	if (data_file->nb_chunks <= 1)
-		goto out;
+	//if (data_file->nb_chunks <= 1)
+	//	goto out;
 
 	/* merge sort */
-	ret = data_file_merge_sort(data_file);
+	//ret = data_file_merge_sort(data_file);
 out:
 	data_file_destroy(data_file);
 	return ret;
