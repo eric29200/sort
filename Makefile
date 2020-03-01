@@ -1,5 +1,5 @@
 TARGET  := sort
-CFLAGS  := -Wall -O2
+CFLAGS  := -Wall -pg
 CC      := gcc
 
 sort : mem.o line.o chunk.o data_file.o sort.o
