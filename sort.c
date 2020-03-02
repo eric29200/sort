@@ -295,6 +295,11 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 				ret = -1;
 				goto out;
 			}
+
+			/* write header */
+			if (data_file->header > 0)
+				fputs(data_file->header_line,
+				      current_chunk->fp);
 		}
 
 		ret = chunk_write(current_chunk);
