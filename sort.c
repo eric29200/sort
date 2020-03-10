@@ -7,6 +7,32 @@
 
 #define LINE_SIZE	4096
 
+struct line_t {
+	char *value;
+	char *key;
+	size_t key_len;
+};
+
+struct chunk_t {
+	FILE *fp;
+	struct line_t **lines;
+	size_t nb_lines;
+	ssize_t size;
+	struct line_t *current_line;
+};
+
+struct data_file_t {
+	char *input_path;
+	char *output_path;
+	struct chunk_t **chunks;
+	size_t nb_chunks;
+	ssize_t chunk_size;
+	char field_delim;
+	int key_field;
+	int header;
+	char *header_line;
+};
+
 static struct line_t *line_create(const char *value, char field_delim,
 				  int key_field)
 {
@@ -215,6 +241,7 @@ static void data_file_destroy(struct data_file_t *data_file)
 	if (data_file) {
 		sort_free(data_file->input_path);
 		sort_free(data_file->output_path);
+		sort_free(data_file->header_line);
 		if (data_file->chunks) {
 			for (i = 0; i < data_file->nb_chunks; i++)
 				chunk_destroy(data_file->chunks[i]);
@@ -243,6 +270,7 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 	FILE *fp;
 	char line[LINE_SIZE];
 	struct chunk_t *current_chunk = NULL;
+	size_t len;
 	int ret = 0;
 
 	/* open input file */
@@ -254,7 +282,7 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 
 	/* store header */
 	if (data_file->header > 0)
-		fgets(data_file->header_line, LINE_SIZE, fp);
+		getline(&data_file->header_line, &len, fp);
 
 	/* read input file line by line */
 	while(fgets(line, LINE_SIZE, fp)) {
@@ -404,4 +432,3 @@ out:
 	data_file_destroy(data_file);
 	return ret;
 }
-
