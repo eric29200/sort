@@ -5,8 +5,6 @@
 #include "sort.h"
 #include "mem.h"
 
-#define LINE_SIZE	4096
-
 struct line_t {
 	char *value;
 	char *key;
@@ -133,12 +131,14 @@ static void chunk_add_line(struct chunk_t *chunk, const char *value,
 	chunk->size += sizeof(new_line) + strlen(new_line->value);
 }
 
-static void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_field) {
-	char line[LINE_SIZE];
+static void chunk_peek_line(struct chunk_t *chunk, char field_delim,
+			    int key_field) {
+	char *line = NULL;
+	size_t len;
 
 	line_destroy(chunk->current_line);
 
-	if (fgets(line, LINE_SIZE, chunk->fp))
+	if (getline(&line, &len, chunk->fp) != -1)
 		chunk->current_line = line_create(line, field_delim, key_field);
 	else
 		chunk->current_line = NULL;
@@ -268,7 +268,7 @@ static struct chunk_t *data_file_add_chunk(struct data_file_t *data_file)
 static int data_file_divide_and_sort(struct data_file_t *data_file)
 {
 	FILE *fp;
-	char line[LINE_SIZE];
+	char *line = NULL;
 	struct chunk_t *current_chunk = NULL;
 	size_t len;
 	int ret = 0;
@@ -285,7 +285,7 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 		getline(&data_file->header_line, &len, fp);
 
 	/* read input file line by line */
-	while(fgets(line, LINE_SIZE, fp)) {
+	while(getline(&line, &len, fp) != -1) {
 		/* create new chunk if needed */
 		if (!current_chunk) {
 			current_chunk = data_file_add_chunk(data_file);
@@ -334,6 +334,8 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 		chunk_clear(current_chunk);
 	}
 out:
+	if (line)
+		free(line);
 	fclose(fp);
 	return ret;
 }
