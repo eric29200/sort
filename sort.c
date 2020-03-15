@@ -138,10 +138,12 @@ static void chunk_peek_line(struct chunk_t *chunk, char field_delim,
 
 	line_destroy(chunk->current_line);
 
-	if (getline(&line, &len, chunk->fp) != -1)
+	if (getline(&line, &len, chunk->fp) != -1) {
 		chunk->current_line = line_create(line, field_delim, key_field);
-	else
+		free(line);
+	} else {
 		chunk->current_line = NULL;
+	}
 }
 
 static void chunk_sort(struct chunk_t *chunk)
