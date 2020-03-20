@@ -45,14 +45,13 @@ static struct line_t *line_create(const char *value, char field_delim,
 	while (key_field-- && (line->key = strchr(line->key, field_delim)))
 	       line->key += 1;
 
-	/* find key end */
-	kend = strchr(line->key, field_delim);
-
-	/* compute key length */
-	if (line->key)
+	/* compute key end and length */
+	if (line->key) {
+		kend = strchr(line->key, field_delim);
 		line->key_len = kend ? kend - line->key : strlen(line->key);
-	else
+	} else {
 		line->key_len = 0;
+	}
 
 	return line;
 }
