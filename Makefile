@@ -2,7 +2,7 @@ TARGET  := sort
 CFLAGS  := -Wall -O2
 CC      := gcc
 
-sort : mem.o sort.o main.o
+sort: mem.o sort.o main.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .o: .c 
