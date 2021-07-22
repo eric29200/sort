@@ -2,7 +2,10 @@
 #include <string.h>
 #include <err.h>
 
-void *sort_malloc(size_t size)
+/*
+ * Malloc or exit.
+ */
+void *xmalloc(size_t size)
 {
 	void *ptr;
 
@@ -13,7 +16,10 @@ void *sort_malloc(size_t size)
 	return ptr;
 }
 
-void *sort_calloc(size_t nmemb, size_t size)
+/*
+ * Calloc or exit.
+ */
+void *xcalloc(size_t nmemb, size_t size)
 {
 	void *ptr;
 
@@ -24,7 +30,10 @@ void *sort_calloc(size_t nmemb, size_t size)
 	return ptr;
 }
 
-void *sort_realloc(void *ptr, size_t size)
+/*
+ * Realloc or exit.
+ */
+void *xrealloc(void *ptr, size_t size)
 {
 	ptr = realloc(ptr, size);
 	if (!ptr)
@@ -33,13 +42,19 @@ void *sort_realloc(void *ptr, size_t size)
 	return ptr;
 }
 
-void sort_free(void *ptr)
+/*
+ * Free memory.
+ */
+void xfree(void *ptr)
 {
 	if (ptr)
 		free(ptr);
 }
 
-void *sort_strdup(const char *s)
+/*
+ * Strdup or exit.
+ */
+void *xstrdup(const char *s)
 {
 	char *dup;
 

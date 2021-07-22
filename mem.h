@@ -1,10 +1,12 @@
 #ifndef _MEM_H_
 #define _MEM_H_
 
-void *sort_malloc(size_t size);
-void *sort_calloc(size_t nmemb, size_t size);
-void *sort_realloc(void *ptr, size_t size);
-void sort_free(void *ptr);
-void *sort_strdup(const char *s);
+#include <stdio.h>
+
+void *xmalloc(size_t size);
+void *xcalloc(size_t nmemb, size_t size);
+void *xrealloc(void *ptr, size_t size);
+void xfree(void *ptr);
+void *xstrdup(const char *s);
 
 #endif

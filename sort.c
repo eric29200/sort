@@ -5,12 +5,18 @@
 #include "sort.h"
 #include "mem.h"
 
+/*
+ * Line structure.
+ */
 struct line_t {
 	char *value;
 	char *key;
 	size_t key_len;
 };
 
+/*
+ * Chunk structure.
+ */
 struct chunk_t {
 	FILE *fp;
 	struct line_t **lines;
@@ -19,6 +25,9 @@ struct chunk_t {
 	struct line_t *current_line;
 };
 
+/*
+ * Data file.
+ */
 struct data_file_t {
 	char *input_path;
 	char *output_path;
@@ -31,19 +40,21 @@ struct data_file_t {
 	char *header_line;
 };
 
-static struct line_t *line_create(const char *value, char field_delim,
-				  int key_field)
+/*
+ * Create a line.
+ */
+static struct line_t *line_create(const char *value, char field_delim, int key_field)
 {
 	struct line_t *line;
 	char *kend;
 
-	line = (struct line_t *) sort_malloc(sizeof(struct line_t));
-	line->value = sort_strdup(value);
+	line = (struct line_t *) xmalloc(sizeof(struct line_t));
+	line->value = xstrdup(value);
 
 	/* find key start */
 	line->key = line->value;
 	while (key_field-- && (line->key = strchr(line->key, field_delim)))
-	       line->key += 1;
+    line->key += 1;
 
 	/* compute key end and length */
 	if (line->key) {
@@ -56,6 +67,9 @@ static struct line_t *line_create(const char *value, char field_delim,
 	return line;
 }
 
+/*
+ * Compare 2 lines.
+ */
 static int line_compare(const void *l1, const void *l2)
 {
 	struct line_t *line1;
@@ -74,25 +88,32 @@ static int line_compare(const void *l1, const void *l2)
 
 	if (line1->key_len < line2->key_len)
 		return -1;
-	else if (line1->key_len > line2->key_len)
+
+	if (line1->key_len > line2->key_len)
 		return 1;
 
 	return 0;
 }
 
+/*
+ * Destroy a line.
+ */
 static void line_destroy(struct line_t *line)
 {
 	if (line) {
-		sort_free(line->value);
+		xfree(line->value);
 		free(line);
 	}
 }
 
+/*
+ * Create a chunk.
+ */
 static struct chunk_t *chunk_create(FILE *fp)
 {
 	struct chunk_t *chunk;
 
-	chunk = sort_malloc(sizeof(struct chunk_t));
+	chunk = xmalloc(sizeof(struct chunk_t));
 	chunk->lines = NULL;
 	chunk->nb_lines = 0;
 	chunk->size = 0;
@@ -105,7 +126,7 @@ static struct chunk_t *chunk_create(FILE *fp)
 		chunk->fp = tmpfile();
 		if (!chunk->fp) {
 			perror("tmpfile");
-			sort_free(chunk);
+			xfree(chunk);
 			return NULL;
 		}
 	}
@@ -113,8 +134,10 @@ static struct chunk_t *chunk_create(FILE *fp)
 	return chunk;
 }
 
-static void chunk_add_line(struct chunk_t *chunk, const char *value,
-		   char field_delim, int key_field)
+/*
+ * Add a line to a chunk.
+ */
+static void chunk_add_line(struct chunk_t *chunk, const char *value, char field_delim, int key_field)
 {
 	struct line_t *new_line;
 
@@ -122,16 +145,16 @@ static void chunk_add_line(struct chunk_t *chunk, const char *value,
 		return;
 
 	new_line = line_create(value, field_delim, key_field);
-	chunk->lines = (struct line_t **) sort_realloc(chunk->lines,
-						  sizeof(struct line_t *)
-						  * (chunk->nb_lines + 1));
+	chunk->lines = (struct line_t **) xrealloc(chunk->lines, sizeof(struct line_t *) * (chunk->nb_lines + 1));
 	chunk->lines[chunk->nb_lines] = new_line;
 	chunk->nb_lines += 1;
 	chunk->size += sizeof(new_line) + strlen(new_line->value);
 }
 
-static void chunk_peek_line(struct chunk_t *chunk, char field_delim,
-			    int key_field) {
+/*
+ * Peek a line from a chunk.
+ */
+static void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_field) {
 	char *line = NULL;
 	size_t len;
 
@@ -145,13 +168,18 @@ static void chunk_peek_line(struct chunk_t *chunk, char field_delim,
 	}
 }
 
+/*
+ * Sort a chunk.
+ */
 static void chunk_sort(struct chunk_t *chunk)
 {
 	if (chunk && chunk->nb_lines > 0)
-		qsort(chunk->lines, chunk->nb_lines, sizeof(struct line_t *),
-		      line_compare);
+		qsort(chunk->lines, chunk->nb_lines, sizeof(struct line_t *), line_compare);
 }
 
+/*
+ * Get minimum link from a list of chunks.
+ */
 static int chunk_min_line(struct chunk_t **chunks, size_t nb_chunks)
 {
 	size_t i;
@@ -161,14 +189,16 @@ static int chunk_min_line(struct chunk_t **chunks, size_t nb_chunks)
 		if (!chunks[i]->current_line)
 			continue;
 
-		if (min == -1 || line_compare(&chunks[i]->current_line,
-					      &chunks[min]->current_line) < 0)
+		if (min == -1 || line_compare(&chunks[i]->current_line, &chunks[min]->current_line) < 0)
 			min = i;
 	}
 
 	return min;
 }
 
+/*
+ * Write a chunk.
+ */
 static int chunk_write(struct chunk_t *chunk)
 {
 	size_t i;
@@ -185,6 +215,9 @@ static int chunk_write(struct chunk_t *chunk)
 	return 0;
 }
 
+/*
+ * Clear a chunk.
+ */
 static void chunk_clear(struct chunk_t *chunk)
 {
 	size_t i;
@@ -205,6 +238,9 @@ static void chunk_clear(struct chunk_t *chunk)
 	}
 }
 
+/*
+ * Destroy a chunk.
+ */
 static void chunk_destroy(struct chunk_t *chunk)
 {
 	if (chunk) {
@@ -214,18 +250,14 @@ static void chunk_destroy(struct chunk_t *chunk)
 	}
 }
 
-static struct data_file_t *data_file_create(const char *input_path,
-					    const char *output_path,
-					    ssize_t chunk_size,
-					    char field_delim, int key_field,
-					    int header)
+static struct data_file_t *data_file_create(const char *input_path, const char *output_path, ssize_t chunk_size,
+                                            char field_delim, int key_field, int header)
 {
 	struct data_file_t *data_file;
 
-	data_file = (struct data_file_t *)
-		sort_malloc(sizeof(struct data_file_t));
-	data_file->input_path = sort_strdup(input_path);
-	data_file->output_path = sort_strdup(output_path);
+	data_file = (struct data_file_t *) xmalloc(sizeof(struct data_file_t));
+	data_file->input_path = xstrdup(input_path);
+	data_file->output_path = xstrdup(output_path);
 	data_file->nb_chunks = 0;
 	data_file->chunk_size = chunk_size;
 	data_file->field_delim = field_delim;
@@ -235,29 +267,33 @@ static struct data_file_t *data_file_create(const char *input_path,
 	return data_file;
 }
 
+/*
+ * Destroy a data file.
+ */
 static void data_file_destroy(struct data_file_t *data_file)
 {
 	size_t i;
 
 	if (data_file) {
-		sort_free(data_file->input_path);
-		sort_free(data_file->output_path);
-		sort_free(data_file->header_line);
+		xfree(data_file->input_path);
+		xfree(data_file->output_path);
+		xfree(data_file->header_line);
 		if (data_file->chunks) {
 			for (i = 0; i < data_file->nb_chunks; i++)
 				chunk_destroy(data_file->chunks[i]);
 
-			sort_free(data_file->chunks);
+			xfree(data_file->chunks);
 		}
 	}
 }
 
+/*
+ * Add a chunk to a data file.
+ */
 static struct chunk_t *data_file_add_chunk(struct data_file_t *data_file)
 {
-	data_file->chunks = (struct chunk_t **) sort_realloc(data_file->chunks,
-							sizeof(struct chunk_t *)
-							* (data_file->nb_chunks
-							   + 1));
+	data_file->chunks = (struct chunk_t **) xrealloc(data_file->chunks,
+                                                   sizeof(struct chunk_t *) * (data_file->nb_chunks + 1));
 	data_file->chunks[data_file->nb_chunks] = chunk_create(NULL);
 	if (!data_file->chunks[data_file->nb_chunks])
 		return NULL;
@@ -266,11 +302,14 @@ static struct chunk_t *data_file_add_chunk(struct data_file_t *data_file)
 	return data_file->chunks[data_file->nb_chunks - 1];
 }
 
+/*
+ * Divide a data file and sort it.
+ */
 static int data_file_divide_and_sort(struct data_file_t *data_file)
 {
+	struct chunk_t *current_chunk = NULL;
 	FILE *fp;
 	char *line = NULL;
-	struct chunk_t *current_chunk = NULL;
 	size_t len;
 	int ret = 0;
 
@@ -297,8 +336,7 @@ static int data_file_divide_and_sort(struct data_file_t *data_file)
 		}
 
 		/* add line to current chunk */
-		chunk_add_line(current_chunk, line, data_file->field_delim,
-			       data_file->key_field);
+		chunk_add_line(current_chunk, line, data_file->field_delim, data_file->key_field);
 
 		/* write chunk */
 		if (current_chunk->size >= data_file->chunk_size) {
@@ -341,6 +379,9 @@ out:
 	return ret;
 }
 
+/*
+ * Merge and sort a data file.
+ */
 static int data_file_merge_sort(struct data_file_t *data_file)
 {
 	FILE *fp_output;
@@ -373,8 +414,7 @@ static int data_file_merge_sort(struct data_file_t *data_file)
 
 	/* peek a line from each buffer */
 	for (i = 0; i < data_file->nb_chunks; i++)
-		chunk_peek_line(data_file->chunks[i], data_file->field_delim,
-				data_file->key_field);
+		chunk_peek_line(data_file->chunks[i], data_file->field_delim, data_file->key_field);
 
 	while (1) {
 		/* compute min line */
@@ -383,13 +423,11 @@ static int data_file_merge_sort(struct data_file_t *data_file)
 			break;
 
 		/* write line to global chunk */
-		chunk_add_line(global_chunk,
-			       data_file->chunks[i]->current_line->value,
-			       data_file->field_delim, data_file->key_field);
+		chunk_add_line(global_chunk, data_file->chunks[i]->current_line->value,
+                   data_file->field_delim, data_file->key_field);
 
 		/* peek a line from min chunk */
-		chunk_peek_line(data_file->chunks[i], data_file->field_delim,
-				data_file->key_field);
+		chunk_peek_line(data_file->chunks[i], data_file->field_delim, data_file->key_field);
 
 		/* write chunk */
 		if (global_chunk->size >= data_file->chunk_size) {
@@ -405,20 +443,23 @@ static int data_file_merge_sort(struct data_file_t *data_file)
 		ret = chunk_write(global_chunk);
 		chunk_clear(global_chunk);
 	}
+
 out:
 	chunk_destroy(global_chunk);
 	return ret;
 }
 
+/*
+ * Sort a file.
+ */
 int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
-	 char field_delim, int key_field, int header)
+         char field_delim, int key_field, int header)
 {
 	struct data_file_t *data_file;
 	int ret;
 
 	/* create data file */
-	data_file = data_file_create(input_path, output_path, chunk_size,
-				     field_delim, key_field, header);
+	data_file = data_file_create(input_path, output_path, chunk_size, field_delim, key_field, header);
 
 	/* divide and sort */
 	ret = data_file_divide_and_sort(data_file);
