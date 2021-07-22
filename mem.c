@@ -7,13 +7,13 @@
  */
 void *xmalloc(size_t size)
 {
-	void *ptr;
+  void *ptr;
 
-	ptr = malloc(size);
-	if (!ptr)
-		err(2, NULL);
+  ptr = malloc(size);
+  if (!ptr)
+    err(2, NULL);
 
-	return ptr;
+  return ptr;
 }
 
 /*
@@ -21,13 +21,13 @@ void *xmalloc(size_t size)
  */
 void *xcalloc(size_t nmemb, size_t size)
 {
-	void *ptr;
+  void *ptr;
 
-	ptr = calloc(nmemb, size);
-	if (!ptr)
-		err(2, NULL);
+  ptr = calloc(nmemb, size);
+  if (!ptr)
+    err(2, NULL);
 
-	return ptr;
+  return ptr;
 }
 
 /*
@@ -35,11 +35,11 @@ void *xcalloc(size_t nmemb, size_t size)
  */
 void *xrealloc(void *ptr, size_t size)
 {
-	ptr = realloc(ptr, size);
-	if (!ptr)
-		err(2, NULL);
+  ptr = realloc(ptr, size);
+  if (!ptr)
+    err(2, NULL);
 
-	return ptr;
+  return ptr;
 }
 
 /*
@@ -47,8 +47,8 @@ void *xrealloc(void *ptr, size_t size)
  */
 void xfree(void *ptr)
 {
-	if (ptr)
-		free(ptr);
+  if (ptr)
+    free(ptr);
 }
 
 /*
@@ -56,11 +56,11 @@ void xfree(void *ptr)
  */
 void *xstrdup(const char *s)
 {
-	char *dup;
+  char *dup;
 
-	dup = strdup(s);
-	if (!dup)
-		err(2, NULL);
+  dup = strdup(s);
+  if (!dup)
+    err(2, NULL);
 
-	return dup;
+  return dup;
 }
