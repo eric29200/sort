@@ -9,7 +9,8 @@
 #define KEY_FIELD     3
 #define HEADER        1
 
-static ssize_t chunk_size = (ssize_t) 500 * (ssize_t) 1024 * (ssize_t) 1024;
+/* default chun size */
+static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /*
  * Line structure.
@@ -139,29 +140,20 @@ static struct line_t *line_create(const char *value, char field_delim, int key_f
 /*
  * Compare 2 lines.
  */
-static int line_compare(const void *l1, const void *l2)
+static inline int line_compare(const void *l1, const void *l2)
 {
-  struct line_t *line1;
-  struct line_t *line2;
+  struct line_t *line1 = *((struct line_t **) l1);
+  struct line_t *line2 = *((struct line_t **) l2);
   size_t len;
-  int ret;
-
-  line1 = *((struct line_t **) l1);
-  line2 = *((struct line_t **) l2);
+  int i;
 
   len = line1->key_len < line2->key_len ? line1->key_len : line2->key_len;
 
-  ret = strncmp(line1->key, line2->key, len);
-  if (ret)
-    return ret;
+  for (i = 0; i < len; i++)
+    if (line1->key[i] != line2->key[i])
+      return line1->key[i] - line2->key[i];
 
-  if (line1->key_len < line2->key_len)
-    return -1;
-
-  if (line1->key_len > line2->key_len)
-    return 1;
-
-  return 0;
+  return line1->key_len - line2->key_len;
 }
 
 /*
