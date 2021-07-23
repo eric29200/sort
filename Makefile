@@ -1,8 +1,8 @@
-TARGET  := sort
+TARGET  := external_sort
 CFLAGS  := -Wall -O2
 CC      := gcc
 
-sort: mem.o sort.o main.o
+external_sort: external_sort.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .o: .c 

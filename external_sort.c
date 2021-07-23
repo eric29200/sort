@@ -1,9 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <err.h>
 
-#include "sort.h"
-#include "mem.h"
+#define INPUT_FILE    "/home/eric/dev/data/test.txt"
+#define OUTPUT_FILE   "/home/eric/dev/data/test.txt.sorted"
+#define FIELD_DELIM   '\t'
+#define KEY_FIELD     3
+#define HEADER        1
+
+static ssize_t chunk_size = (ssize_t) 500 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /*
  * Line structure.
@@ -39,6 +45,69 @@ struct data_file_t {
   int header;
   char *header_line;
 };
+
+/*
+ * Malloc or exit.
+ */
+void *xmalloc(size_t size)
+{
+  void *ptr;
+
+  ptr = malloc(size);
+  if (!ptr)
+    err(2, NULL);
+
+  return ptr;
+}
+
+/*
+ * Calloc or exit.
+ */
+void *xcalloc(size_t nmemb, size_t size)
+{
+  void *ptr;
+
+  ptr = calloc(nmemb, size);
+  if (!ptr)
+    err(2, NULL);
+
+  return ptr;
+}
+
+/*
+ * Realloc or exit.
+ */
+void *xrealloc(void *ptr, size_t size)
+{
+  ptr = realloc(ptr, size);
+  if (!ptr)
+    err(2, NULL);
+
+  return ptr;
+}
+
+/*
+ * Free memory.
+ */
+void xfree(void *ptr)
+{
+  if (ptr)
+    free(ptr);
+}
+
+/*
+ * Strdup or exit.
+ */
+void *xstrdup(const char *s)
+{
+  char *dup;
+
+  dup = strdup(s);
+  if (!dup)
+    err(2, NULL);
+
+  return dup;
+}
 
 /*
  * Create a line.
@@ -452,8 +521,8 @@ out:
 /*
  * Sort a file.
  */
-int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
-         char field_delim, int key_field, int header)
+static int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
+                char field_delim, int key_field, int header)
 {
   struct data_file_t *data_file;
   int ret;
@@ -475,4 +544,9 @@ int sort(const char *input_path, const char *output_path, ssize_t chunk_size,
 out:
   data_file_destroy(data_file);
   return ret;
+}
+
+int main(int argc, char **argv)
+{
+  return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER);
 }
