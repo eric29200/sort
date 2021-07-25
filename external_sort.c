@@ -219,6 +219,7 @@ static void chunk_peek_line(struct chunk_t *chunk, char field_delim, int key_fie
   char *line = NULL;
   size_t len;
 
+  /* destroy previous line */
   line_destroy(chunk->current_line);
 
   if (getline(&line, &len, chunk->fp) != -1) {
@@ -311,6 +312,9 @@ static void chunk_destroy(struct chunk_t *chunk)
   }
 }
 
+/*
+ * Create a data file.
+ */
 static struct data_file_t *data_file_create(const char *input_path, const char *output_path, ssize_t chunk_size,
                                             char field_delim, int key_field, int header)
 {
