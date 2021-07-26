@@ -23,13 +23,11 @@ struct line_t {
  */
 struct data_file_t {
   char *input_path;
-  char *output_path;
   struct line_t **lines;
   size_t nb_lines;
   char field_delim;
   int key_field;
   int header;
-  char *header_line;
 };
 
 /*
@@ -155,14 +153,12 @@ static void line_destroy(struct line_t *line)
 /*
  * Create a data file.
  */
-static struct data_file_t *data_file_create(const char *input_path, const char *output_path,
-                                            char field_delim, int key_field, int header)
+static struct data_file_t *data_file_create(const char *input_path, char field_delim, int key_field, int header)
 {
   struct data_file_t *data_file;
 
   data_file = (struct data_file_t *) xmalloc(sizeof(struct data_file_t));
   data_file->input_path = xstrdup(input_path);
-  data_file->output_path = xstrdup(output_path);
   data_file->lines = NULL;
   data_file->nb_lines = 0;
   data_file->field_delim = field_delim;
@@ -181,8 +177,7 @@ static void data_file_destroy(struct data_file_t *data_file)
 
   if (data_file) {
     xfree(data_file->input_path);
-    xfree(data_file->output_path);
-    xfree(data_file->header_line);
+
     if (data_file->lines) {
       for (i = 0; i < data_file->nb_lines; i++)
         line_destroy(data_file->lines[i]);
@@ -224,9 +219,9 @@ static int data_file_read(struct data_file_t *data_file)
     return -1;
   }
 
-  /* store header */
+  /* skip header */
   if (data_file->header > 0)
-    getline(&data_file->header_line, &len, fp);
+    getline(&line, &len, fp);
 
   /* read input file line by line */
   while(getline(&line, &len, fp) != -1)
@@ -238,47 +233,11 @@ static int data_file_read(struct data_file_t *data_file)
 }
 
 /*
- * Write a data file.
- */
-static int data_file_write(struct data_file_t *data_file)
-{
-  size_t i;
-  FILE *fp;
-
-  /* open input file */
-  fp = fopen(data_file->output_path, "w");
-  if (!fp) {
-    perror("fopen");
-    return -1;
-  }
-
-  /* write header */
-  if (data_file->header > 0 && data_file->header_line && !fputs(data_file->header_line, fp)) {
-    perror("fputs");
-    fclose(fp);
-    return -1;
-  }
-
-  /* write all lines */
-  for (i = 0; i < data_file->nb_lines; i++) {
-    if (!fputs(data_file->lines[i]->value, fp)) {
-      perror("fputs");
-      fclose(fp);
-      return -1;
-    }
-  }
-
-  /* close output file */
-  fclose(fp);
-  return 0;
-}
-
-/*
  * Sort a data file.
  */
 static int data_file_sort(struct data_file_t *data_file)
 {
-  int ret = 0;
+  int ret;
 
   /* read data file */
   ret = data_file_read(data_file);
@@ -289,8 +248,7 @@ static int data_file_sort(struct data_file_t *data_file)
   if (data_file->nb_lines > 0)
     qsort(data_file->lines, data_file->nb_lines, sizeof(struct line_t *), line_compare);
 
-  /* write sorted data file */
-  return data_file_write(data_file);
+  return ret;
 }
 
 /*
@@ -302,7 +260,7 @@ static int sort(const char *input_path, const char *output_path, char field_deli
   int ret;
 
   /* create data file */
-  data_file = data_file_create(input_path, output_path, field_delim, key_field, header);
+  data_file = data_file_create(input_path, field_delim, key_field, header);
 
   /* sort */
   ret = data_file_sort(data_file);
