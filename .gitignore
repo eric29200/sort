@@ -1,2 +1,3 @@
 *.o
+sort
 external_sort

@@ -9,7 +9,7 @@
 #define KEY_FIELD     3
 #define HEADER        1
 
-/* default chun size */
+/* default chunk size */
 static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /*
@@ -542,6 +542,9 @@ out:
   return ret;
 }
 
+/*
+ * Main.
+ */
 int main(int argc, char **argv)
 {
   return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER);
