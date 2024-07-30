@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <err.h>
+
+#include "mem.h"
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
@@ -24,7 +25,7 @@ struct line {
 struct data_file {
 	char *			input_file;
 	char *			output_file;
-	struct line **		lines;
+	struct line *		lines;
 	size_t 			nr_lines;
 	char **			header_lines;
 	size_t			nr_header_lines;
@@ -34,85 +35,18 @@ struct data_file {
 };
 
 /**
- * @brief Malloc or exit.
+ * @brief Init a line.
  * 
- * @param size 		size to allocate
- *
- * @return allocated memory
- */
-static void *xmalloc(size_t size)
-{
-	void *ptr;
-
-	ptr = malloc(size);
-	if (!ptr)
-		err(2, NULL);
-
-	return ptr;
-}
-
-/**
- * @brief Realloc or exit.
- * 
- * @param ptr		memory to reallocate
- * @param size 		size to allocate
- *
- * @return allocated memory
- */
-static void *xrealloc(void *ptr, size_t size)
-{
-	ptr = realloc(ptr, size);
-	if (!ptr)
-		err(2, NULL);
-
-	return ptr;
-}
-
-/**
- * @brief Safe free.
- * 
- * @param ptr 		memory to free
- */
-static void xfree(void *ptr)
-{
-	if (ptr)
-		free(ptr);
-}
-
-/**
- * @brief Duplicate a string or exit.
- * 
- * @param s 		string to duplicate
- *
- * @return duplicated string
- */
-static void *xstrdup(const char *s)
-{
-	char *dup;
-
-	dup = strdup(s);
-	if (!dup)
-		err(2, NULL);
-
-	return dup;
-}
-
-/**
- * @brief Create a new line.
- * 
+ * @param line			line
  * @param value 		line value
  * @param field_delim 		field delimiter
  * @param key_field 		key field
- *
- * @return line
  */
-static struct line *line_create(const char *value, char field_delim, int key_field)
+static void line_init(struct line *line, const char *value, char field_delim, int key_field)
 {
-	struct line *line;
 	char *kend;
 
-	/* allocate a new line */
-	line = (struct line *) xmalloc(sizeof(struct line));
+	/* set value */
 	line->value = xstrdup(value);
 
 	/* find key start */
@@ -127,8 +61,16 @@ static struct line *line_create(const char *value, char field_delim, int key_fie
 	} else {
 		line->key_len = 0;
 	}
+}
 
-	return line;
+/**
+ * @brief Free a line.
+ * 
+ * @param line 		line
+ */
+static void line_free(struct line *line)
+{
+	free(line->value);
 }
 
 /**
@@ -141,33 +83,20 @@ static struct line *line_create(const char *value, char field_delim, int key_fie
  */
 static inline int line_compare(const void *l1, const void *l2)
 {
-	struct line *line1 = *((struct line **) l1);
-	struct line *line2 = *((struct line **) l2);
+	struct line *line1 = (struct line *) l1;
+	struct line *line2 = (struct line *) l2;
 	size_t len;
-	int i;
+	int ret;
 
-	/* find maximum length */
+	/* find maximum key length */
 	len = line1->key_len < line2->key_len ? line1->key_len : line2->key_len;
 
-	/* compare characters */
-	for (i = 0; i < len; i++)
-		if (line1->key[i] != line2->key[i])
-			return line1->key[i] - line2->key[i];
+	/* compare keys */
+	ret = strncmp(line1->key, line2->key, len);
+	if (ret)
+		return ret;
 
 	return line1->key_len - line2->key_len;
-}
-
-/**
- * @brief Free a line.
- * 
- * @param line 		line
- */
-static void line_free(struct line *line)
-{
-	if (line) {
-		xfree(line->value);
-		free(line);
-	}
 }
 
 /**
@@ -222,7 +151,7 @@ static void data_file_free(struct data_file *data_file)
 		/* free lines */
 		if (data_file->lines) {
 			for (i = 0; i < data_file->nr_lines; i++)
-				line_free(data_file->lines[i]);
+				line_free(&data_file->lines[i]);
 
 			free(data_file->lines);
 		}
@@ -239,14 +168,11 @@ static void data_file_free(struct data_file *data_file)
  */
 static void data_file_add_line(struct data_file *data_file, const char *value, char field_delim, int key_field)
 {
-	struct line *new_line;
-
 	if (!data_file || !value)
 		return;
 
-	new_line = line_create(value, field_delim, key_field);
-	data_file->lines = (struct line **) xrealloc(data_file->lines, sizeof(struct line *) * (data_file->nr_lines + 1));
-	data_file->lines[data_file->nr_lines] = new_line;
+	data_file->lines = (struct line *) xrealloc(data_file->lines, sizeof(struct line) * (data_file->nr_lines + 1));
+	line_init(&data_file->lines[data_file->nr_lines], value, field_delim, key_field);
 	data_file->nr_lines += 1;
 }
 
@@ -319,7 +245,7 @@ static int data_file_write(struct data_file *data_file)
 
 	/* write lines */
 	for (i = 0; i < data_file->nr_lines; i++)
-		fputs(data_file->lines[i]->value, fp);
+		fputs(data_file->lines[i].value, fp);
 
 	/* close output file */
 	fclose(fp);
@@ -335,7 +261,7 @@ static int data_file_write(struct data_file *data_file)
 static void data_file_sort(struct data_file *data_file)
 {
 	if (data_file->nr_lines > 0)
-		qsort(data_file->lines, data_file->nr_lines, sizeof(struct line *), line_compare);
+		qsort(data_file->lines, data_file->nr_lines, sizeof(struct line), line_compare);
 }
 
 /**
