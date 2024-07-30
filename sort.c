@@ -5,35 +5,42 @@
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
-#define FIELD_DELIM	 	'\t'
-#define KEY_FIELD		3
+#define FIELD_DELIM	 	';'
+#define KEY_FIELD		1
 #define HEADER			1
 
-/*
- * Line structure.
+/**
+ * @brief Line structure.
  */
-struct line_t {
+struct line {
 	char *			value;
 	char *			key;
 	size_t 			key_len;
 };
 
-/*
- * Data file.
+/**
+ * @brief Data file.
  */
-struct data_file_t {
-	char *			input_path;
-	struct line_t **	lines;
-	size_t 			nb_lines;
+struct data_file {
+	char *			input_file;
+	char *			output_file;
+	struct line **		lines;
+	size_t 			nr_lines;
+	char **			header_lines;
+	size_t			nr_header_lines;
 	char 			field_delim;
 	int 			key_field;
 	int 			header;
 };
 
-/*
- * Malloc or exit.
+/**
+ * @brief Malloc or exit.
+ * 
+ * @param size 		size to allocate
+ *
+ * @return allocated memory
  */
-void *xmalloc(size_t size)
+static void *xmalloc(size_t size)
 {
 	void *ptr;
 
@@ -44,24 +51,15 @@ void *xmalloc(size_t size)
 	return ptr;
 }
 
-/*
- * Calloc or exit.
+/**
+ * @brief Realloc or exit.
+ * 
+ * @param ptr		memory to reallocate
+ * @param size 		size to allocate
+ *
+ * @return allocated memory
  */
-void *xcalloc(size_t nmemb, size_t size)
-{
-	void *ptr;
-
-	ptr = calloc(nmemb, size);
-	if (!ptr)
-		err(2, NULL);
-
-	return ptr;
-}
-
-/*
- * Realloc or exit.
- */
-void *xrealloc(void *ptr, size_t size)
+static void *xrealloc(void *ptr, size_t size)
 {
 	ptr = realloc(ptr, size);
 	if (!ptr)
@@ -70,19 +68,25 @@ void *xrealloc(void *ptr, size_t size)
 	return ptr;
 }
 
-/*
- * Free memory.
+/**
+ * @brief Safe free.
+ * 
+ * @param ptr 		memory to free
  */
-void xfree(void *ptr)
+static void xfree(void *ptr)
 {
 	if (ptr)
 		free(ptr);
 }
 
-/*
- * Strdup or exit.
+/**
+ * @brief Duplicate a string or exit.
+ * 
+ * @param s 		string to duplicate
+ *
+ * @return duplicated string
  */
-void *xstrdup(const char *s)
+static void *xstrdup(const char *s)
 {
 	char *dup;
 
@@ -93,21 +97,28 @@ void *xstrdup(const char *s)
 	return dup;
 }
 
-/*
- * Create a line.
+/**
+ * @brief Create a new line.
+ * 
+ * @param value 		line value
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ *
+ * @return line
  */
-static struct line_t *line_create(const char *value, char field_delim, int key_field)
+static struct line *line_create(const char *value, char field_delim, int key_field)
 {
-	struct line_t *line;
+	struct line *line;
 	char *kend;
 
-	line = (struct line_t *) xmalloc(sizeof(struct line_t));
+	/* allocate a new line */
+	line = (struct line *) xmalloc(sizeof(struct line));
 	line->value = xstrdup(value);
 
 	/* find key start */
 	line->key = line->value;
 	while (key_field-- && (line->key = strchr(line->key, field_delim)))
-		line->key += 1;
+		line->key++;
 
 	/* compute key end and length */
 	if (line->key) {
@@ -120,18 +131,25 @@ static struct line_t *line_create(const char *value, char field_delim, int key_f
 	return line;
 }
 
-/*
- * Compare 2 lines.
+/**
+ * @brief Compare 2 lines.
+ * 
+ * @param l1 		first line
+ * @param l2 		second line
+ *
+ * @return comparison result
  */
 static inline int line_compare(const void *l1, const void *l2)
 {
-	struct line_t *line1 = *((struct line_t **) l1);
-	struct line_t *line2 = *((struct line_t **) l2);
+	struct line *line1 = *((struct line **) l1);
+	struct line *line2 = *((struct line **) l2);
 	size_t len;
 	int i;
 
+	/* find maximum length */
 	len = line1->key_len < line2->key_len ? line1->key_len : line2->key_len;
 
+	/* compare characters */
 	for (i = 0; i < len; i++)
 		if (line1->key[i] != line2->key[i])
 			return line1->key[i] - line2->key[i];
@@ -139,10 +157,12 @@ static inline int line_compare(const void *l1, const void *l2)
 	return line1->key_len - line2->key_len;
 }
 
-/*
- * Destroy a line.
+/**
+ * @brief Free a line.
+ * 
+ * @param line 		line
  */
-static void line_destroy(struct line_t *line)
+static void line_free(struct line *line)
 {
 	if (line) {
 		xfree(line->value);
@@ -150,17 +170,27 @@ static void line_destroy(struct line_t *line)
 	}
 }
 
-/*
- * Create a data file.
+/**
+ * @brief Create a data file.
+ * 
+ * @param input_file		input file
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ * @param header 		number of header lines
+ *
+ * @return data file
  */
-static struct data_file_t *data_file_create(const char *input_path, char field_delim, int key_field, int header)
+static struct data_file *data_file_create(const char *input_file, const char *output_file, char field_delim, int key_field, int header)
 {
-	struct data_file_t *data_file;
+	struct data_file *data_file;
 
-	data_file = (struct data_file_t *) xmalloc(sizeof(struct data_file_t));
-	data_file->input_path = xstrdup(input_path);
+	data_file = (struct data_file *) xmalloc(sizeof(struct data_file));
+	data_file->input_file = xstrdup(input_file);
+	data_file->output_file = xstrdup(output_file);
 	data_file->lines = NULL;
-	data_file->nb_lines = 0;
+	data_file->nr_lines = 0;
+	data_file->header_lines = NULL;
+	data_file->nr_header_lines = 0;
 	data_file->field_delim = field_delim;
 	data_file->key_field = key_field;
 	data_file->header = header;
@@ -168,112 +198,192 @@ static struct data_file_t *data_file_create(const char *input_path, char field_d
 	return data_file;
 }
 
-/*
- * Destroy a data file.
+/**
+ * @brief Free a data file.
+ * 
+ * @param data_file 		data file
  */
-static void data_file_destroy(struct data_file_t *data_file)
+static void data_file_free(struct data_file *data_file)
 {
 	size_t i;
 
 	if (data_file) {
-		xfree(data_file->input_path);
+		xfree(data_file->input_file);
+		xfree(data_file->output_file);
 
+		/* free header lines */
+		if (data_file->header_lines) {
+			for (i = 0; i < data_file->nr_header_lines; i++)
+				free(data_file->header_lines[i]);
+
+			free(data_file->header_lines);
+		}
+
+		/* free lines */
 		if (data_file->lines) {
-			for (i = 0; i < data_file->nb_lines; i++)
-				line_destroy(data_file->lines[i]);
+			for (i = 0; i < data_file->nr_lines; i++)
+				line_free(data_file->lines[i]);
 
-			xfree(data_file->lines);
+			free(data_file->lines);
 		}
 	}
 }
 
-/*
- * Add a line to a data file.
+/**
+ * @brief Add a line to a data file.
+ * 
+ * @param data_file 		data file
+ * @param value 		line value
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
  */
-static void data_file_add_line(struct data_file_t *data_file, const char *value, char field_delim, int key_field)
+static void data_file_add_line(struct data_file *data_file, const char *value, char field_delim, int key_field)
 {
-	struct line_t *new_line;
+	struct line *new_line;
 
 	if (!data_file || !value)
 		return;
 
 	new_line = line_create(value, field_delim, key_field);
-	data_file->lines = (struct line_t **) xrealloc(data_file->lines, sizeof(struct line_t *) * (data_file->nb_lines + 1));
-	data_file->lines[data_file->nb_lines] = new_line;
-	data_file->nb_lines += 1;
+	data_file->lines = (struct line **) xrealloc(data_file->lines, sizeof(struct line *) * (data_file->nr_lines + 1));
+	data_file->lines[data_file->nr_lines] = new_line;
+	data_file->nr_lines += 1;
 }
 
-/*
- * Read a data file.
+/**
+ * @brief Read a data file.
+ * 
+ * @param data_file 		data file
+ *
+ * @return status
  */
-static int data_file_read(struct data_file_t *data_file)
+static int data_file_read(struct data_file *data_file)
 {
 	char *line = NULL;
 	size_t len;
 	FILE *fp;
+	int i;
 
 	/* open input file */
-	fp = fopen(data_file->input_path, "r");
+	fp = fopen(data_file->input_file, "r");
 	if (!fp) {
 		perror("fopen");
 		return -1;
 	}
 
-	/* skip header */
-	if (data_file->header > 0)
-		getline(&line, &len, fp);
+	/* get header lines */
+	if (data_file->header > 0) {
+		data_file->header_lines = (char **) xmalloc(sizeof(char *) * data_file->header);
+
+		for (i = 0; i < data_file->header; i++) {
+			if (getline(&line, &len, fp) == -1)
+				goto out;
+
+			data_file->header_lines[data_file->nr_header_lines++] = xstrdup(line);
+		}
+	}
 
 	/* read input file line by line */
-	while(getline(&line, &len, fp) != -1)
+	while (getline(&line, &len, fp) != -1)
 		data_file_add_line(data_file, line, data_file->field_delim, data_file->key_field);
 
+out:
 	/* close input file */
 	fclose(fp);
+
 	return 0;
 }
 
-/*
- * Sort a data file.
+/**
+ * @brief Write a data file.
+ * 
+ * @param data_file 		data file
+ *
+ * @return status
  */
-static int data_file_sort(struct data_file_t *data_file)
+static int data_file_write(struct data_file *data_file)
 {
+	FILE *fp;
+	size_t i;
+
+	/* open output file */
+	fp = fopen(data_file->output_file, "w");
+	if (!fp) {
+		perror("fopen");
+		return -1;
+	}
+	
+	/* write header lines */
+	for (i = 0; i < data_file->nr_header_lines; i++)
+		fputs(data_file->header_lines[i], fp);
+
+	/* write lines */
+	for (i = 0; i < data_file->nr_lines; i++)
+		fputs(data_file->lines[i]->value, fp);
+
+	/* close output file */
+	fclose(fp);
+
+	return 0;
+}
+
+/**
+ * @brief Sort a data file.
+ * 
+ * @param data_file 		data file
+ */
+static void data_file_sort(struct data_file *data_file)
+{
+	if (data_file->nr_lines > 0)
+		qsort(data_file->lines, data_file->nr_lines, sizeof(struct line *), line_compare);
+}
+
+/**
+ * @brief Sort a file.
+ * 
+ * @param input_file 		input file
+ * @param output_file 		output file
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ * @param header 		number of header lines
+ *
+ * @return status
+ */
+static int sort(const char *input_file, const char *output_file, char field_delim, int key_field, int header)
+{
+	struct data_file *data_file;
 	int ret;
 
+	/* remove output file */
+	remove(output_file);
+
+	/* create data file */
+	data_file = data_file_create(input_file, output_file, field_delim, key_field, header);
+	
 	/* read data file */
 	ret = data_file_read(data_file);
 	if (ret)
-		return ret;
+		goto out;
 
 	/* sort data file */
-	if (data_file->nb_lines > 0)
-		qsort(data_file->lines, data_file->nb_lines, sizeof(struct line_t *), line_compare);
+	data_file_sort(data_file);
+
+	/* write data file */
+	ret = data_file_write(data_file);
+
+out:
+	/* free data file */
+	data_file_free(data_file);
 
 	return ret;
 }
 
-/*
- * Sort a file.
+/**
+ * @brief Main.
+ * 
+ * @return status
  */
-static int sort(const char *input_path, const char *output_path, char field_delim, int key_field, int header)
-{
-	struct data_file_t *data_file;
-	int ret;
-
-	/* create data file */
-	data_file = data_file_create(input_path, field_delim, key_field, header);
-
-	/* sort */
-	ret = data_file_sort(data_file);
-
-	/* destroy data file */
-	data_file_destroy(data_file);
-	return ret;
-}
-
-/*
- * Main.
- */
-int main(int argc, char **argv)
+int main()
 {
 	return sort(INPUT_FILE, OUTPUT_FILE, FIELD_DELIM, KEY_FIELD, HEADER);
 }
