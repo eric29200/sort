@@ -17,9 +17,7 @@
 struct data_file {
 	char *			input_file;
 	char *			output_file;
-	struct line *		lines;
-	size_t 			nr_lines;
-	size_t			lines_capacity;
+	struct line_array *	line_array;	
 	char **			header_lines;
 	size_t			nr_header_lines;
 	char 			field_delim;
@@ -44,9 +42,7 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file = (struct data_file *) xmalloc(sizeof(struct data_file));
 	data_file->input_file = xstrdup(input_file);
 	data_file->output_file = xstrdup(output_file);
-	data_file->lines = NULL;
-	data_file->nr_lines = 0;
-	data_file->lines_capacity = 0;
+	data_file->line_array = line_array_create();
 	data_file->header_lines = NULL;
 	data_file->nr_header_lines = 0;
 	data_file->field_delim = field_delim;
@@ -78,39 +74,8 @@ static void data_file_free(struct data_file *data_file)
 		}
 
 		/* free lines */
-		if (data_file->lines) {
-			for (i = 0; i < data_file->nr_lines; i++)
-				line_free(&data_file->lines[i]);
-
-			free(data_file->lines);
-		}
+		line_array_free(data_file->line_array);
 	}
-}
-
-/**
- * @brief Add a line to a data file.
- * 
- * @param data_file 		data file
- * @param value 		line value
- * @param field_delim 		field delimiter
- * @param key_field 		key field
- */
-static void data_file_add_line(struct data_file *data_file, const char *value, char field_delim, int key_field)
-{
-	if (!data_file || !value)
-		return;
-
-	/* grow lines array if needed */
-	if (data_file->nr_lines == data_file->lines_capacity) {
-		data_file->lines_capacity = data_file->lines_capacity + (data_file->lines_capacity >> 1);
-		if (data_file->lines_capacity < 10)
-			data_file->lines_capacity = 10;
-		data_file->lines = (struct line *) xrealloc(data_file->lines, sizeof(struct line) * data_file->lines_capacity);
-	}
-
-	/* add line */
-	line_init(&data_file->lines[data_file->nr_lines], value, field_delim, key_field);
-	data_file->nr_lines += 1;
 }
 
 /**
@@ -148,7 +113,7 @@ static int data_file_read(struct data_file *data_file)
 
 	/* read input file line by line */
 	while (getline(&line, &len, fp) != -1)
-		data_file_add_line(data_file, line, data_file->field_delim, data_file->key_field);
+		line_array_add(data_file->line_array, line, data_file->field_delim, data_file->key_field);
 
 out:
 	/* close input file */
@@ -181,24 +146,13 @@ static int data_file_write(struct data_file *data_file)
 		fputs(data_file->header_lines[i], fp);
 
 	/* write lines */
-	for (i = 0; i < data_file->nr_lines; i++)
-		fputs(data_file->lines[i].value, fp);
+	for (i = 0; i < data_file->line_array->size; i++)
+		fputs(data_file->line_array->lines[i].value, fp);
 
 	/* close output file */
 	fclose(fp);
 
 	return 0;
-}
-
-/**
- * @brief Sort a data file.
- * 
- * @param data_file 		data file
- */
-static void data_file_sort(struct data_file *data_file)
-{
-	if (data_file->nr_lines > 0)
-		qsort(data_file->lines, data_file->nr_lines, sizeof(struct line), line_compare);
 }
 
 /**
@@ -229,7 +183,7 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 		goto out;
 
 	/* sort data file */
-	data_file_sort(data_file);
+	line_array_sort(data_file->line_array);
 
 	/* write data file */
 	ret = data_file_write(data_file);

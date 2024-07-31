@@ -13,6 +13,16 @@ struct line {
 };
 
 /**
+ * @brief Line array structure.
+ * 
+ */
+struct line_array {
+	struct line *		lines;
+	size_t			size;
+	size_t			capacity;
+};
+
+/**
  * @brief Init a line.
  * 
  * @param line			line
@@ -38,5 +48,43 @@ void line_free(struct line *line);
  * @return comparison result
  */
 int line_compare(const void *l1, const void *l2);
+
+/**
+ * @brief Create a line array.
+ * 
+ * @return line array
+ */
+struct line_array *line_array_create();
+
+/**
+ * @brief Free a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_free(struct line_array *larr);
+
+/**
+ * @brief Clear a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_clear(struct line_array *larr);
+
+/**
+ * @brief Add a line.
+ * 
+ * @param larr			line array
+ * @param value 		line value
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ */
+void line_array_add(struct line_array *larr, const char *value, char field_delim, int key_field);
+
+/**
+ * @brief Sort a line array.
+ * 
+ * @param larr		line array
+ */
+void line_array_sort(struct line_array *larr);
 
 #endif

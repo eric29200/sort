@@ -20,9 +20,7 @@ static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
  */
 struct chunk {
 	FILE *			fp;
-	struct line *		lines;
-	size_t 			nr_lines;
-	size_t			lines_capacity;
+	struct line_array *	line_array;	
 	ssize_t 		size;
 	struct line 		current_line;
 };
@@ -56,9 +54,7 @@ static struct chunk *chunk_create(FILE *fp)
 
 	/* allocate a new chunk */
 	chunk = xmalloc(sizeof(struct chunk));
-	chunk->lines = NULL;
-	chunk->nr_lines = 0;
-	chunk->lines_capacity = 0;
+	chunk->line_array = line_array_create();
 	chunk->size = 0;
 	chunk->current_line.value = NULL;
 
@@ -90,18 +86,8 @@ static void chunk_add_line(struct chunk *chunk, const char *value, char field_de
 {
 	if (!chunk || !value)
 		return;
-	
-	/* grow lines array if needed */
-	if (chunk->nr_lines == chunk->lines_capacity) {
-		chunk->lines_capacity = chunk->lines_capacity + (chunk->lines_capacity >> 1);
-		if (chunk->lines_capacity < 10)
-			chunk->lines_capacity = 10;
-		chunk->lines = (struct line *) xrealloc(chunk->lines, sizeof(struct line) * chunk->lines_capacity);
-	}
 
-	/* add line */
-	line_init(&chunk->lines[chunk->nr_lines], value, field_delim, key_field);
-	chunk->nr_lines += 1;
+	line_array_add(chunk->line_array, value, field_delim, key_field);
 	chunk->size += strlen(value);
 }
 
@@ -134,8 +120,7 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
  */
 static void chunk_sort(struct chunk *chunk)
 {
-	if (chunk && chunk->nr_lines > 0)
-		qsort(chunk->lines, chunk->nr_lines, sizeof(struct line), line_compare);
+	line_array_sort(chunk->line_array);
 }
 
 /**
@@ -174,8 +159,8 @@ static int chunk_write(struct chunk *chunk)
 	size_t i;
 
 	if (chunk) {
-		for (i = 0; i < chunk->nr_lines; i++) {
-			if (!fputs(chunk->lines[i].value, chunk->fp)) {
+		for (i = 0; i < chunk->line_array->size; i++) {
+			if (!fputs(chunk->line_array->lines[i].value, chunk->fp)) {
 				perror("fputs");
 				return -1;
 			}
@@ -192,23 +177,16 @@ static int chunk_write(struct chunk *chunk)
  */
 static void chunk_clear(struct chunk *chunk)
 {
-	size_t i;
+	if (!chunk)
+		return;
 
-	if (chunk) {
-		if (chunk->lines) {
-			for (i = 0; i < chunk->nr_lines; i++)
-				line_free(&chunk->lines[i]);
+	/* clear lines */
+	line_array_clear(chunk->line_array);
+	chunk->size = 0;
 
-			free(chunk->lines);
-			chunk->lines = NULL;
-		}
-
-		if (chunk->current_line.value)
-			line_free(&chunk->current_line);
-
-		chunk->nr_lines = 0;
-		chunk->lines_capacity = 0;
-	}
+	/* clear current line */
+	if (chunk->current_line.value)
+		line_free(&chunk->current_line);
 }
 
 /**
