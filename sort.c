@@ -93,6 +93,7 @@ static int data_file_read(struct data_file *data_file)
 	char *ptr, *s;
 	long fp_len;
 	int ret = 0;
+	size_t i;
 	FILE *fp;
 
 	/* open input file */
@@ -108,15 +109,29 @@ static int data_file_read(struct data_file *data_file)
 	rewind(fp);
 
 	/* read file */
-	data_file->content = xmalloc(fp_len);
+	data_file->content = ptr = xmalloc(fp_len);
 	if (fread(data_file->content, fp_len, 1, fp) != 1) {
 		perror("fread");
 		ret = -1;
 		goto out;
 	}
 
+	/* parse header lines */
+	for (i = 0; i < data_file->header; i++) {
+		/* find end of line */
+		for (s = ptr; *ptr != '\n' && *ptr != 0; ptr++);
+
+		/* end header line */
+		*ptr++ = 0;
+
+		/* add header line */
+		data_file->header_lines = (char **) xrealloc(data_file->header_lines, sizeof(char *) * (data_file->nr_header_lines + 1));
+		data_file->header_lines[data_file->nr_header_lines++] = xstrdup(s);
+	}
+
+
 	/* parse content */
-	for (ptr = data_file->content, s = data_file->content; *ptr != 0; ptr++) {
+	for (s = ptr; *ptr != 0; ptr++) {
 		/* new line */
 		if (*ptr == '\n') {
 			/* end of line */
@@ -157,12 +172,16 @@ static int data_file_write(struct data_file *data_file)
 	}
 	
 	/* write header lines */
-	for (i = 0; i < data_file->nr_header_lines; i++)
+	for (i = 0; i < data_file->nr_header_lines; i++) {
 		fputs(data_file->header_lines[i], fp);
+		fputc('\n', fp);
+	}
 
 	/* write lines */
-	for (i = 0; i < data_file->line_array->size; i++)
+	for (i = 0; i < data_file->line_array->size; i++) {
 		fputs(data_file->line_array->lines[i].value, fp);
+		fputc('\n', fp);
+	}
 
 	/* close output file */
 	fclose(fp);
