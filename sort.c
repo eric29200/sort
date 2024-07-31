@@ -17,12 +17,13 @@
 struct data_file {
 	char *			input_file;
 	char *			output_file;
-	struct line_array *	line_array;	
-	char **			header_lines;
-	size_t			nr_header_lines;
 	char 			field_delim;
 	int 			key_field;
 	int 			header;
+	char *			content;
+	struct line_array *	line_array;	
+	char **			header_lines;
+	size_t			nr_header_lines;
 };
 
 /**
@@ -42,12 +43,13 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file = (struct data_file *) xmalloc(sizeof(struct data_file));
 	data_file->input_file = xstrdup(input_file);
 	data_file->output_file = xstrdup(output_file);
-	data_file->line_array = line_array_create();
-	data_file->header_lines = NULL;
-	data_file->nr_header_lines = 0;
 	data_file->field_delim = field_delim;
 	data_file->key_field = key_field;
 	data_file->header = header;
+	data_file->content = NULL;
+	data_file->line_array = line_array_create();
+	data_file->header_lines = NULL;
+	data_file->nr_header_lines = 0;
 
 	return data_file;
 }
@@ -64,6 +66,7 @@ static void data_file_free(struct data_file *data_file)
 	if (data_file) {
 		xfree(data_file->input_file);
 		xfree(data_file->output_file);
+		xfree(data_file->content);
 
 		/* free header lines */
 		if (data_file->header_lines) {
@@ -87,10 +90,10 @@ static void data_file_free(struct data_file *data_file)
  */
 static int data_file_read(struct data_file *data_file)
 {
-	char *line = NULL;
-	size_t len;
+	char *ptr, *s;
+	long fp_len;
+	int ret = 0;
 	FILE *fp;
-	int i;
 
 	/* open input file */
 	fp = fopen(data_file->input_file, "r");
@@ -99,27 +102,39 @@ static int data_file_read(struct data_file *data_file)
 		return -1;
 	}
 
-	/* get header lines */
-	if (data_file->header > 0) {
-		data_file->header_lines = (char **) xmalloc(sizeof(char *) * data_file->header);
+	/* get file length */
+	fseek(fp, 0, SEEK_END);
+	fp_len = ftell(fp);
+	rewind(fp);
 
-		for (i = 0; i < data_file->header; i++) {
-			if (getline(&line, &len, fp) == -1)
-				goto out;
-
-			data_file->header_lines[data_file->nr_header_lines++] = xstrdup(line);
-		}
+	/* read file */
+	data_file->content = xmalloc(fp_len);
+	if (fread(data_file->content, fp_len, 1, fp) != 1) {
+		perror("fread");
+		ret = -1;
+		goto out;
 	}
 
-	/* read input file line by line */
-	while (getline(&line, &len, fp) != -1)
-		line_array_add(data_file->line_array, line, data_file->field_delim, data_file->key_field);
+	/* parse content */
+	for (ptr = data_file->content, s = data_file->content; *ptr != 0; ptr++) {
+		/* new line */
+		if (*ptr == '\n') {
+			/* end of line */
+			*ptr = 0;
+
+			/* add line */
+			line_array_add(data_file->line_array, s, data_file->field_delim, data_file->key_field);
+
+			/* go to next line */
+			s = ptr + 1;
+		}
+	}
 
 out:
 	/* close input file */
 	fclose(fp);
 
-	return 0;
+	return ret;
 }
 
 /**

@@ -30,7 +30,7 @@ struct line_array {
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, const char *value, char field_delim, int key_field);
+void line_init(struct line *line, char *value, char field_delim, int key_field);
 
 /**
  * @brief Free a line.
@@ -64,6 +64,20 @@ struct line_array *line_array_create();
 void line_array_free(struct line_array *larr);
 
 /**
+ * @brief Free a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_free_full(struct line_array *larr);
+
+/**
+ * @brief Clear a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_clear_full(struct line_array *larr);
+
+/**
  * @brief Clear a line array.
  * 
  * @param larr 		line array
@@ -78,7 +92,7 @@ void line_array_clear(struct line_array *larr);
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_array_add(struct line_array *larr, const char *value, char field_delim, int key_field);
+void line_array_add(struct line_array *larr, char *value, char field_delim, int key_field);
 
 /**
  * @brief Sort a line array.

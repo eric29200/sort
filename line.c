@@ -12,12 +12,12 @@
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, const char *value, char field_delim, int key_field)
+void line_init(struct line *line, char *value, char field_delim, int key_field)
 {
 	char *kend;
 
 	/* set value */
-	line->value = xstrdup(value);
+	line->value = value;
 
 	/* find key start */
 	line->key = line->value;
@@ -102,11 +102,46 @@ void line_array_free(struct line_array *larr)
 }
 
 /**
+ * @brief Free a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_free_full(struct line_array *larr)
+{
+	if (!larr)
+		return;
+
+	line_array_clear_full(larr);
+	free(larr);
+}
+
+/**
  * @brief Clear a line array.
  * 
  * @param larr 		line array
  */
 void line_array_clear(struct line_array *larr)
+{
+	if (!larr)
+		return;
+
+	/* clear lines */
+	if (larr->lines) {
+		free(larr->lines);
+		larr->lines = NULL;
+	}
+
+	/* reset size */
+	larr->size = 0;
+	larr->capacity = 0;
+}
+
+/**
+ * @brief Clear a line array.
+ * 
+ * @param larr 		line array
+ */
+void line_array_clear_full(struct line_array *larr)
 {
 	size_t i;
 
@@ -135,7 +170,7 @@ void line_array_clear(struct line_array *larr)
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_array_add(struct line_array *larr, const char *value, char field_delim, int key_field)
+void line_array_add(struct line_array *larr, char *value, char field_delim, int key_field)
 {
 	if (!larr || !value)
 		return;

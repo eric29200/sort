@@ -87,7 +87,7 @@ static void chunk_add_line(struct chunk *chunk, const char *value, char field_de
 	if (!chunk || !value)
 		return;
 
-	line_array_add(chunk->line_array, value, field_delim, key_field);
+	line_array_add(chunk->line_array, xstrdup(value), field_delim, key_field);
 	chunk->size += strlen(value);
 }
 
@@ -108,7 +108,7 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
 
 	/* get next line */
 	if (getline(&line, &len, chunk->fp) != -1) {
-		line_init(&chunk->current_line, line, field_delim, key_field);
+		line_init(&chunk->current_line, xstrdup(line), field_delim, key_field);
 		free(line);
 	}
 }
@@ -181,7 +181,7 @@ static void chunk_clear(struct chunk *chunk)
 		return;
 
 	/* clear lines */
-	line_array_clear(chunk->line_array);
+	line_array_clear_full(chunk->line_array);
 	chunk->size = 0;
 
 	/* clear current line */
@@ -199,6 +199,7 @@ static void chunk_free(struct chunk *chunk)
 	if (chunk) {
 		fclose(chunk->fp);
 		chunk_clear(chunk);
+		line_array_free_full(chunk->line_array);
 		free(chunk);
 	}
 }
