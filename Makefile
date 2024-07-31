@@ -1,12 +1,12 @@
-CFLAGS  := -Wall -O2
+CFLAGS  := -Wall -O2 -g
 CC      := gcc
 
 all: sort external_sort
 
-sort: mem.o sort.o
+sort: mem.o line.o sort.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-external_sort: mem.o external_sort.o
+external_sort: mem.o line.o external_sort.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .o: .c 

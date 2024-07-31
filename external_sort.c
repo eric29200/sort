@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include "mem.h"
+#include "line.h"
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
@@ -15,23 +16,15 @@
 static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /**
- * @brief Line structure.
- */
-struct line {
-	char *			value;
-	char *			key;
-	size_t 			key_len;
-};
-
-/**
  * @brief Chunk structure.
  */
 struct chunk {
 	FILE *			fp;
-	struct line **		lines;
+	struct line *		lines;
 	size_t 			nr_lines;
+	size_t			lines_capacity;
 	ssize_t 		size;
-	struct line *		current_line;
+	struct line 		current_line;
 };
 
 /**
@@ -51,79 +44,6 @@ struct data_file {
 };
 
 /**
- * @brief Create a new line.
- * 
- * @param value 		line value
- * @param field_delim 		field delimiter
- * @param key_field 		key field
- *
- * @return line
- */
-static struct line *line_create(const char *value, char field_delim, int key_field)
-{
-	struct line *line;
-	char *kend;
-
-	/* allocate a new line */
-	line = (struct line *) xmalloc(sizeof(struct line));
-	line->value = xstrdup(value);
-
-	/* find key start */
-	line->key = line->value;
-	while (key_field-- && (line->key = strchr(line->key, field_delim)))
-		line->key++;
-
-	/* compute key end and length */
-	if (line->key) {
-		kend = strchr(line->key, field_delim);
-		line->key_len = kend ? kend - line->key : strlen(line->key);
-	} else {
-		line->key_len = 0;
-	}
-
-	return line;
-}
-
-/**
- * @brief Compare 2 lines.
- * 
- * @param l1 		first line
- * @param l2 		second line
- *
- * @return comparison result
- */
-static inline int line_compare(const void *l1, const void *l2)
-{
-	struct line *line1 = *((struct line **) l1);
-	struct line *line2 = *((struct line **) l2);
-	size_t len;
-	int i;
-
-	/* find maximum length */
-	len = line1->key_len < line2->key_len ? line1->key_len : line2->key_len;
-
-	/* compare characters */
-	for (i = 0; i < len; i++)
-		if (line1->key[i] != line2->key[i])
-			return line1->key[i] - line2->key[i];
-
-	return line1->key_len - line2->key_len;
-}
-
-/**
- * @brief Free a line.
- * 
- * @param line 		line
- */
-static void line_free(struct line *line)
-{
-	if (line) {
-		xfree(line->value);
-		free(line);
-	}
-}
-
-/**
  * @brief Create a chunk.
  * 
  * @param fp 		chunk file
@@ -138,8 +58,9 @@ static struct chunk *chunk_create(FILE *fp)
 	chunk = xmalloc(sizeof(struct chunk));
 	chunk->lines = NULL;
 	chunk->nr_lines = 0;
+	chunk->lines_capacity = 0;
 	chunk->size = 0;
-	chunk->current_line = NULL;
+	chunk->current_line.value = NULL;
 
 	/* set or create file */
 	if (fp) {
@@ -167,16 +88,21 @@ static struct chunk *chunk_create(FILE *fp)
  */
 static void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, int key_field)
 {
-	struct line *new_line;
-
 	if (!chunk || !value)
 		return;
+	
+	/* grow lines array if needed */
+	if (chunk->nr_lines == chunk->lines_capacity) {
+		chunk->lines_capacity = chunk->lines_capacity + (chunk->lines_capacity >> 1);
+		if (chunk->lines_capacity < 10)
+			chunk->lines_capacity = 10;
+		chunk->lines = (struct line *) xrealloc(chunk->lines, sizeof(struct line) * chunk->lines_capacity);
+	}
 
-	new_line = line_create(value, field_delim, key_field);
-	chunk->lines = (struct line **) xrealloc(chunk->lines, sizeof(struct line *) * (chunk->nr_lines + 1));
-	chunk->lines[chunk->nr_lines] = new_line;
+	/* add line */
+	line_init(&chunk->lines[chunk->nr_lines], value, field_delim, key_field);
 	chunk->nr_lines += 1;
-	chunk->size += sizeof(new_line) + strlen(new_line->value);
+	chunk->size += strlen(value);
 }
 
 /**
@@ -192,14 +118,12 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
 	size_t len;
 
 	/* free previous line */
-	line_free(chunk->current_line);
+	line_free(&chunk->current_line);
 
 	/* get next line */
 	if (getline(&line, &len, chunk->fp) != -1) {
-		chunk->current_line = line_create(line, field_delim, key_field);
+		line_init(&chunk->current_line, line, field_delim, key_field);
 		free(line);
-	} else {
-		chunk->current_line = NULL;
 	}
 }
 
@@ -211,7 +135,7 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
 static void chunk_sort(struct chunk *chunk)
 {
 	if (chunk && chunk->nr_lines > 0)
-		qsort(chunk->lines, chunk->nr_lines, sizeof(struct line *), line_compare);
+		qsort(chunk->lines, chunk->nr_lines, sizeof(struct line), line_compare);
 }
 
 /**
@@ -228,7 +152,7 @@ static int chunk_min_line(struct chunk **chunks, size_t nr_chunks)
 	size_t i;
 
 	for (i = 0; i < nr_chunks; i++) {
-		if (!chunks[i]->current_line)
+		if (!chunks[i]->current_line.value)
 			continue;
 
 		if (min == -1 || line_compare(&chunks[i]->current_line, &chunks[min]->current_line) < 0)
@@ -251,7 +175,7 @@ static int chunk_write(struct chunk *chunk)
 
 	if (chunk) {
 		for (i = 0; i < chunk->nr_lines; i++) {
-			if (!fputs(chunk->lines[i]->value, chunk->fp)) {
+			if (!fputs(chunk->lines[i].value, chunk->fp)) {
 				perror("fputs");
 				return -1;
 			}
@@ -273,16 +197,17 @@ static void chunk_clear(struct chunk *chunk)
 	if (chunk) {
 		if (chunk->lines) {
 			for (i = 0; i < chunk->nr_lines; i++)
-				line_free(chunk->lines[i]);
+				line_free(&chunk->lines[i]);
 
 			free(chunk->lines);
 			chunk->lines = NULL;
 		}
 
-		if (chunk->current_line)
-			line_free(chunk->current_line);
+		if (chunk->current_line.value)
+			line_free(&chunk->current_line);
 
 		chunk->nr_lines = 0;
+		chunk->lines_capacity = 0;
 	}
 }
 
@@ -517,7 +442,7 @@ static int data_file_merge_sort(struct data_file *data_file)
 			break;
 
 		/* write line to global chunk */
-		chunk_add_line(global_chunk, data_file->chunks[i]->current_line->value, data_file->field_delim, data_file->key_field);
+		chunk_add_line(global_chunk, data_file->chunks[i]->current_line.value, data_file->field_delim, data_file->key_field);
 
 		/* peek a line from min chunk */
 		chunk_peek_line(data_file->chunks[i], data_file->field_delim, data_file->key_field);
