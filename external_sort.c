@@ -46,7 +46,8 @@ struct data_file {
 	char 			field_delim;
 	int 			key_field;
 	int 			header;
-	char *			header_line;
+	char **			header_lines;
+	size_t			nr_header_lines;
 };
 
 /**
@@ -319,11 +320,14 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file = (struct data_file *) xmalloc(sizeof(struct data_file));
 	data_file->input_file = xstrdup(input_file);
 	data_file->output_file = xstrdup(output_file);
+	data_file->chunks = NULL;
 	data_file->nr_chunks = 0;
 	data_file->chunk_size = chunk_size;
 	data_file->field_delim = field_delim;
 	data_file->key_field = key_field;
 	data_file->header = header;
+	data_file->header_lines = NULL;
+	data_file->nr_header_lines = 0;
 
 	return data_file;
 }
@@ -340,7 +344,16 @@ static void data_file_free(struct data_file *data_file)
 	if (data_file) {
 		xfree(data_file->input_file);
 		xfree(data_file->output_file);
-		xfree(data_file->header_line);
+
+		/* free header lines */
+		if (data_file->header_lines) {
+			for (i = 0; i < data_file->nr_header_lines; i++)
+				free(data_file->header_lines[i]);
+
+			free(data_file->header_lines);
+		}
+		
+		/* free chunks */
 		if (data_file->chunks) {
 			for (i = 0; i < data_file->nr_chunks; i++)
 				chunk_free(data_file->chunks[i]);
@@ -379,8 +392,8 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 {
 	struct chunk *current_chunk = NULL;
 	char *line = NULL;
+	size_t len, i;
 	int ret = 0;
-	size_t len;
 	FILE *fp;
 
 	/* open input file */
@@ -390,9 +403,17 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 		return -1;
 	}
 
-	/* store header */
-	if (data_file->header > 0)
-		getline(&data_file->header_line, &len, fp);
+	/* get header lines */
+	if (data_file->header > 0) {
+		data_file->header_lines = (char **) xmalloc(sizeof(char *) * data_file->header);
+
+		for (i = 0; i < data_file->header; i++) {
+			if (getline(&line, &len, fp) == -1)
+				goto out;
+
+			data_file->header_lines[data_file->nr_header_lines++] = xstrdup(line);
+		}
+	}
 
 	/* read input file line by line */
 	while(getline(&line, &len, fp) != -1) {
@@ -433,9 +454,9 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 				goto out;
 			}
 
-			/* write header */
-			if (data_file->header > 0)
-				fputs(data_file->header_line, current_chunk->fp);
+			/* write header lines */
+			for (i = 0; i < data_file->nr_header_lines; i++)
+				fputs(data_file->header_lines[i], fp);
 		}
 
 		ret = chunk_write(current_chunk);
@@ -458,23 +479,23 @@ out:
 static int data_file_merge_sort(struct data_file *data_file)
 {
 	struct chunk *global_chunk;
-	FILE *fp_output;
 	int ret = 0;
+	FILE *fp;
 	size_t i;
 
 	/* open output file */
-	fp_output = fopen(data_file->output_file, "w");
-	if (!fp_output) {
+	fp = fopen(data_file->output_file, "w");
+	if (!fp) {
 		perror("fopen");
 		return -1;
 	}
 
-	/* write header */
-	if (data_file->header > 0)
-		fputs(data_file->header_line, fp_output);
+	/* write header lines */
+	for (i = 0; i < data_file->nr_header_lines; i++)
+		fputs(data_file->header_lines[i], fp);
 
 	/* create a global chunk */
-	global_chunk = chunk_create(fp_output);
+	global_chunk = chunk_create(fp);
 
 	/* rewind each chunk */
 	for (i = 0; i < data_file->nr_chunks; i++) {
