@@ -8,7 +8,7 @@
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
 #define FIELD_DELIM	 	';'
-#define KEY_FIELD		1
+#define KEY_FIELD		7
 #define HEADER			1
 
 /**
