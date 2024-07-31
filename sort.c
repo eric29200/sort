@@ -27,6 +27,7 @@ struct data_file {
 	char *			output_file;
 	struct line *		lines;
 	size_t 			nr_lines;
+	size_t			lines_capacity;
 	char **			header_lines;
 	size_t			nr_header_lines;
 	char 			field_delim;
@@ -118,6 +119,7 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file->output_file = xstrdup(output_file);
 	data_file->lines = NULL;
 	data_file->nr_lines = 0;
+	data_file->lines_capacity = 0;
 	data_file->header_lines = NULL;
 	data_file->nr_header_lines = 0;
 	data_file->field_delim = field_delim;
@@ -171,7 +173,14 @@ static void data_file_add_line(struct data_file *data_file, const char *value, c
 	if (!data_file || !value)
 		return;
 
-	data_file->lines = (struct line *) xrealloc(data_file->lines, sizeof(struct line) * (data_file->nr_lines + 1));
+	/* grow lines array if needed */
+	if (data_file->nr_lines == data_file->lines_capacity) {
+		data_file->lines_capacity = data_file->lines_capacity + (data_file->lines_capacity >> 1);
+		if (data_file->lines_capacity < 10)
+			data_file->lines_capacity = 10;
+		data_file->lines = (struct line *) xrealloc(data_file->lines, sizeof(struct line) * data_file->lines_capacity);
+	}
+
 	line_init(&data_file->lines[data_file->nr_lines], value, field_delim, key_field);
 	data_file->nr_lines += 1;
 }
