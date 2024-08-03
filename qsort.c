@@ -74,7 +74,7 @@ void quick_sort(void *data, int size, size_t item_size, int (*compare)(const voi
 	void *tmp;
 
 	/* check input array */
-	if (!data || size == 0 || item_size < 2)
+	if (!data || size < 2)
 		return;
 
 	/* allocate tmp */
