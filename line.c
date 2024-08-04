@@ -2,8 +2,6 @@
 #include <stdlib.h>
 
 #include "line.h"
-#include "qsort.h"
-#include "tsort.h"
 #include "mem.h"
 
 /**
@@ -198,5 +196,5 @@ void line_array_add(struct line_array *larr, char *value, char field_delim, int 
 void line_array_sort(struct line_array *larr)
 {
 	if (larr->size > 0)
-		quick_sort(larr->lines, larr->size, sizeof(struct line), line_compare);
+		qsort(larr->lines, larr->size, sizeof(struct line), line_compare);
 }
