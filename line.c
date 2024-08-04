@@ -3,6 +3,7 @@
 
 #include "line.h"
 #include "qsort.h"
+#include "tsort.h"
 #include "mem.h"
 
 /**
