@@ -1,8 +1,21 @@
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "line.h"
 #include "mem.h"
+
+#define NR_BUCKETS		256
+
+/**
+ * @brief Thread sort argument.
+ */
+struct thread_sort_arg {
+	struct line_array **	buckets;
+	size_t			i;
+	pthread_mutex_t 	lock;
+};
+
 
 /**
  * @brief Init a line.
@@ -163,6 +176,25 @@ void line_array_clear_full(struct line_array *larr)
 }
 
 /**
+ * @brief Grow a line array.
+ * 
+ * @param larr 		line array
+ */
+static void __line_array_grow(struct line_array *larr)
+{
+	if (larr->size != larr->capacity)
+		return;
+
+	/* set new capacity */
+	larr->capacity = larr->capacity + (larr->capacity >> 1);
+	if (larr->capacity < 10)
+		larr->capacity = 10;
+	
+	/* reallocate lines */
+	larr->lines = (struct line *) xrealloc(larr->lines, sizeof(struct line) * larr->capacity);
+}
+
+/**
  * @brief Add a line.
  * 
  * @param larr			line array
@@ -176,25 +208,103 @@ void line_array_add(struct line_array *larr, char *value, char field_delim, int 
 		return;
 
 	/* grow lines array if needed */
-	if (larr->size == larr->capacity) {
-		larr->capacity = larr->capacity + (larr->capacity >> 1);
-		if (larr->capacity < 10)
-			larr->capacity = 10;
-		larr->lines = (struct line *) xrealloc(larr->lines, sizeof(struct line) * larr->capacity);
-	}
+	__line_array_grow(larr);
 
 	/* add line */
-	line_init(&larr->lines[larr->size], value, field_delim, key_field);
-	larr->size++;
+	line_init(&larr->lines[larr->size++], value, field_delim, key_field);
+}
+
+/**
+ * @brief Add a line.
+ * 
+ * @param larr			line array
+ * @param line			line to add
+ */
+static void __line_array_add(struct line_array *larr, struct line *line)
+{
+	/* grow lines array if needed */
+	__line_array_grow(larr);
+
+	/* add line */
+	larr->lines[larr->size++] = *line;
+}
+
+/**
+ * @brief Sort a line array (thread function).
+ * 
+ * @param arg 			thread argument
+ *
+ * @return status
+ */
+static void *__line_array_sort_thread(void *arg)
+{
+	struct thread_sort_arg *targ = (struct thread_sort_arg *) arg;
+	struct line_array *larr;
+
+	for (;;) {
+		/* get next bucket */
+		pthread_mutex_lock(&targ->lock);
+		larr = targ->i < NR_BUCKETS ? targ->buckets[targ->i++] : NULL;
+		pthread_mutex_unlock(&targ->lock);
+
+		/* no more bucket */
+		if (!larr)
+			break;
+	
+		/* sort bucket */
+		qsort(larr->lines, larr->size, sizeof(struct line), line_compare);
+	}
+
+	return NULL;
 }
 
 /**
  * @brief Sort a line array.
  * 
  * @param larr		line array
+ * @param nr_threads	number of threads to use
  */
-void line_array_sort(struct line_array *larr)
+void line_array_sort(struct line_array *larr, size_t nr_threads)
 {
-	if (larr->size > 0)
-		qsort(larr->lines, larr->size, sizeof(struct line), line_compare);
+	pthread_t threads[nr_threads < 1 ? 1 : nr_threads];
+	struct thread_sort_arg targ;
+	size_t i, j, k;
+
+	/* fix number of threads */
+	if (nr_threads < 1)
+		nr_threads = 1;
+
+	/* create buckets */
+	targ.buckets = (struct line_array **) xmalloc(NR_BUCKETS * sizeof(struct line_array *));
+	for (i = 0; i < NR_BUCKETS; i++)
+		targ.buckets[i] = line_array_create();
+
+	/* populate buckets */
+	for (i = 0; i < larr->size; i++)
+		__line_array_add(targ.buckets[(unsigned char) larr->lines[i].key[0]], &larr->lines[i]);
+
+	/* init threads arguments */
+	targ.i = 0;
+	pthread_mutex_init(&targ.lock, NULL);
+
+	/* create threads */
+	for (i = 0; i < nr_threads; i++)
+		pthread_create(&threads[i], NULL, __line_array_sort_thread, &targ);
+	
+	/* wait for threads */
+	for (i = 0; i < nr_threads; i++)
+		pthread_join(threads[i], NULL);
+	
+	/* merge buckets */
+	for (i = 0, k = 0; i < NR_BUCKETS; i++)
+		for (j = 0; j < targ.buckets[i]->size; j++)
+			larr->lines[k++] = targ.buckets[i]->lines[j];
+
+	/* free buckets */
+	for (i = 0; i < NR_BUCKETS; i++)
+		line_array_free(targ.buckets[i]);
+	xfree(targ.buckets);
+	
+	/* clear arguments */
+	pthread_mutex_destroy(&targ.lock);
 }

@@ -9,8 +9,9 @@
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
 #define FIELD_DELIM	 	';'
-#define KEY_FIELD		7
+#define KEY_FIELD		1
 #define HEADER			1
+#define NR_THREADS		8
 
 /* default chunk size */
 static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
@@ -39,6 +40,7 @@ struct data_file {
 	int 			header;
 	char **			header_lines;
 	size_t			nr_header_lines;
+	size_t			nr_threads;
 };
 
 /**
@@ -111,16 +113,6 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
 		line_init(&chunk->current_line, xstrdup(line), field_delim, key_field);
 		free(line);
 	}
-}
-
-/**
- * @brief Sort a chunk.
- * 
- * @param chunk 		chunk
- */
-static void chunk_sort(struct chunk *chunk)
-{
-	line_array_sort(chunk->line_array);
 }
 
 /**
@@ -213,11 +205,12 @@ static void chunk_free(struct chunk *chunk)
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  * @param header 		number of header lines
+ * @param nr_threads		number of threads to use
  *
  * @return data file
  */
 static struct data_file *data_file_create(const char *input_file, const char *output_file, ssize_t chunk_size,
-					  char field_delim, int key_field, int header)
+					  char field_delim, int key_field, int header, size_t nr_threads)
 {
 	struct data_file *data_file;
 
@@ -232,6 +225,7 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file->header = header;
 	data_file->header_lines = NULL;
 	data_file->nr_header_lines = 0;
+	data_file->nr_threads = nr_threads;
 
 	return data_file;
 }
@@ -335,7 +329,7 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 
 		/* write chunk */
 		if (current_chunk->size >= data_file->chunk_size) {
-			chunk_sort(current_chunk);
+			line_array_sort(current_chunk->line_array, data_file->nr_threads);
 			ret = chunk_write(current_chunk);
 			chunk_clear(current_chunk);
 			current_chunk = NULL;
@@ -346,7 +340,7 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 
 	/* write last chunk */
 	if (current_chunk) {
-		chunk_sort(current_chunk);
+		line_array_sort(current_chunk->line_array, data_file->nr_threads);
 
 		/* if only one chunk : write directly to the output */
 		if (data_file->nr_chunks == 1) {
@@ -455,10 +449,11 @@ out:
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  * @param header 		number of header lines
+ * @param nr_threads		number of threads to use
  *
  * @return status
  */
-static int sort(const char *input_file, const char *output_file, ssize_t chunk_size, char field_delim, int key_field, int header)
+static int sort(const char *input_file, const char *output_file, ssize_t chunk_size, char field_delim, int key_field, int header, size_t nr_threads)
 {
 	struct data_file *data_file;
 	int ret;
@@ -467,7 +462,7 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 	remove(output_file);
 
 	/* create data file */
-	data_file = data_file_create(input_file, output_file, chunk_size, field_delim, key_field, header);
+	data_file = data_file_create(input_file, output_file, chunk_size, field_delim, key_field, header, nr_threads);
 
 	/* divide and sort */
 	ret = data_file_divide_and_sort(data_file);
@@ -495,5 +490,5 @@ out:
  */
 int main(int argc, char **argv)
 {
-	return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER);
+	return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }

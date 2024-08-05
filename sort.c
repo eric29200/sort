@@ -8,8 +8,9 @@
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
 #define FIELD_DELIM	 	';'
-#define KEY_FIELD		7
+#define KEY_FIELD		1
 #define HEADER			1
+#define NR_THREADS		8
 
 /**
  * @brief Data file.
@@ -24,6 +25,7 @@ struct data_file {
 	struct line_array *	line_array;	
 	char **			header_lines;
 	size_t			nr_header_lines;
+	size_t			nr_threads;
 };
 
 /**
@@ -33,10 +35,11 @@ struct data_file {
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  * @param header 		number of header lines
+ * @param nr_threads		number of threads to use
  *
  * @return data file
  */
-static struct data_file *data_file_create(const char *input_file, const char *output_file, char field_delim, int key_field, int header)
+static struct data_file *data_file_create(const char *input_file, const char *output_file, char field_delim, int key_field, int header, size_t nr_threads)
 {
 	struct data_file *data_file;
 
@@ -50,6 +53,7 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file->line_array = line_array_create();
 	data_file->header_lines = NULL;
 	data_file->nr_header_lines = 0;
+	data_file->nr_threads = nr_threads;
 
 	return data_file;
 }
@@ -197,10 +201,11 @@ static int data_file_write(struct data_file *data_file)
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  * @param header 		number of header lines
+ * @param nr_threads		number of threads to use
  *
  * @return status
  */
-static int sort(const char *input_file, const char *output_file, char field_delim, int key_field, int header)
+static int sort(const char *input_file, const char *output_file, char field_delim, int key_field, int header, size_t nr_threads)
 {
 	struct data_file *data_file;
 	int ret;
@@ -209,7 +214,7 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 	remove(output_file);
 
 	/* create data file */
-	data_file = data_file_create(input_file, output_file, field_delim, key_field, header);
+	data_file = data_file_create(input_file, output_file, field_delim, key_field, header, nr_threads);
 	
 	/* read data file */
 	ret = data_file_read(data_file);
@@ -217,7 +222,7 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 		goto out;
 
 	/* sort data file */
-	line_array_sort(data_file->line_array);
+	line_array_sort(data_file->line_array, data_file->nr_threads);
 
 	/* write data file */
 	ret = data_file_write(data_file);
@@ -236,5 +241,5 @@ out:
  */
 int main()
 {
-	return sort(INPUT_FILE, OUTPUT_FILE, FIELD_DELIM, KEY_FIELD, HEADER);
+	return sort(INPUT_FILE, OUTPUT_FILE, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }

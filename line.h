@@ -87,10 +87,10 @@ void line_array_clear(struct line_array *larr);
 /**
  * @brief Add a line.
  * 
- * @param larr			line array
- * @param value 		line value
- * @param field_delim 		field delimiter
- * @param key_field 		key field
+ * @param larr		line array
+ * @param value 	line value
+ * @param field_delim	field delimiter
+ * @param key_field 	key field
  */
 void line_array_add(struct line_array *larr, char *value, char field_delim, int key_field);
 
@@ -98,7 +98,8 @@ void line_array_add(struct line_array *larr, char *value, char field_delim, int 
  * @brief Sort a line array.
  * 
  * @param larr		line array
+ * @param nr_threads	number of threads to use
  */
-void line_array_sort(struct line_array *larr);
+void line_array_sort(struct line_array *larr, size_t nr_threads);
 
 #endif
