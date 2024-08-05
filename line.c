@@ -230,6 +230,41 @@ static void __line_array_add(struct line_array *larr, struct line *line)
 }
 
 /**
+ * @brief Sort a line array.
+ * 
+ * @param lines 		lines
+ * @param nr_lines		number of lines
+ */
+static void __qsort(struct line *lines, size_t nr_lines)
+{
+	struct line pivot, tmp;
+	int i, j;
+
+	if (nr_lines < 2)
+		return;
+
+	pivot = lines[nr_lines / 2];
+
+	for (i = 0, j = nr_lines - 1; ; i++, j--) {
+		while (line_compare(&lines[i], &pivot) < 0)
+			i++;
+
+		while (line_compare(&lines[j], &pivot) > 0)
+			j--;
+
+		if (i >= j)
+			break;
+
+		tmp = lines[i];
+		lines[i] = lines[j];
+		lines[j] = tmp;
+	}
+
+	__qsort(lines, i);
+	__qsort(lines + i, nr_lines - i);
+}
+
+/**
  * @brief Sort a line array (thread function).
  * 
  * @param arg 			thread argument
@@ -252,7 +287,7 @@ static void *__line_array_sort_thread(void *arg)
 			break;
 	
 		/* sort bucket */
-		qsort(larr->lines, larr->size, sizeof(struct line), line_compare);
+		__qsort(larr->lines, larr->size);
 	}
 
 	return NULL;
