@@ -8,6 +8,7 @@
  */
 struct line {
 	char *			value;
+	size_t			value_len;
 	char *			key;
 	size_t 			key_len;
 };
@@ -27,10 +28,11 @@ struct line_array {
  * 
  * @param line			line
  * @param value 		line value
+ * @param value_len		value length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, char *value, char field_delim, int key_field);
+void line_init(struct line *line, char *value, size_t value_len, char field_delim, int key_field);
 
 /**
  * @brief Free a line.
@@ -89,10 +91,11 @@ void line_array_clear(struct line_array *larr);
  * 
  * @param larr		line array
  * @param value 	line value
+ * @param value_len	line value length
  * @param field_delim	field delimiter
  * @param key_field 	key field
  */
-void line_array_add(struct line_array *larr, char *value, char field_delim, int key_field);
+void line_array_add(struct line_array *larr, char *value, size_t value_len, char field_delim, int key_field);
 
 /**
  * @brief Sort a line array.

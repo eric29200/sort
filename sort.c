@@ -23,8 +23,7 @@ struct data_file {
 	int 			header;
 	char *			content;
 	struct line_array *	line_array;	
-	char **			header_lines;
-	size_t			nr_header_lines;
+	size_t			header_len;
 	size_t			nr_threads;
 };
 
@@ -51,8 +50,7 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
 	data_file->header = header;
 	data_file->content = NULL;
 	data_file->line_array = line_array_create();
-	data_file->header_lines = NULL;
-	data_file->nr_header_lines = 0;
+	data_file->header_len = 0;
 	data_file->nr_threads = nr_threads;
 
 	return data_file;
@@ -65,24 +63,13 @@ static struct data_file *data_file_create(const char *input_file, const char *ou
  */
 static void data_file_free(struct data_file *data_file)
 {
-	size_t i;
+	if (!data_file)
+		return;
 
-	if (data_file) {
-		xfree(data_file->input_file);
-		xfree(data_file->output_file);
-		xfree(data_file->content);
-
-		/* free header lines */
-		if (data_file->header_lines) {
-			for (i = 0; i < data_file->nr_header_lines; i++)
-				free(data_file->header_lines[i]);
-
-			free(data_file->header_lines);
-		}
-
-		/* free lines */
-		line_array_free(data_file->line_array);
-	}
+	xfree(data_file->input_file);
+	xfree(data_file->output_file);
+	xfree(data_file->content);
+	line_array_free(data_file->line_array);
 }
 
 /**
@@ -120,29 +107,23 @@ static int data_file_read(struct data_file *data_file)
 		goto out;
 	}
 
-	/* parse header lines */
+	/* parse header */
 	for (i = 0; i < data_file->header; i++) {
 		/* find end of line */
 		for (s = ptr; *ptr != '\n' && *ptr != 0; ptr++);
-
-		/* end header line */
-		*ptr++ = 0;
-
-		/* add header line */
-		data_file->header_lines = (char **) xrealloc(data_file->header_lines, sizeof(char *) * (data_file->nr_header_lines + 1));
-		data_file->header_lines[data_file->nr_header_lines++] = xstrdup(s);
+		if (*ptr == '\n')
+			ptr++;
 	}
 
+	/* set header length */
+	data_file->header_len = ptr - data_file->content;
 
 	/* parse content */
 	for (s = ptr; *ptr != 0; ptr++) {
 		/* new line */
 		if (*ptr == '\n') {
-			/* end of line */
-			*ptr = 0;
-
 			/* add line */
-			line_array_add(data_file->line_array, s, data_file->field_delim, data_file->key_field);
+			line_array_add(data_file->line_array, s, ptr - s, data_file->field_delim, data_file->key_field);
 
 			/* go to next line */
 			s = ptr + 1;
@@ -175,15 +156,12 @@ static int data_file_write(struct data_file *data_file)
 		return -1;
 	}
 	
-	/* write header lines */
-	for (i = 0; i < data_file->nr_header_lines; i++) {
-		fputs(data_file->header_lines[i], fp);
-		fputc('\n', fp);
-	}
+	/* write header */
+	fwrite(data_file->content, data_file->header_len, 1, fp);
 
 	/* write lines */
 	for (i = 0; i < data_file->line_array->size; i++) {
-		fputs(data_file->line_array->lines[i].value, fp);
+		fwrite(data_file->line_array->lines[i].value, data_file->line_array->lines[i].value_len, 1, fp);
 		fputc('\n', fp);
 	}
 

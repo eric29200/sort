@@ -22,15 +22,17 @@ struct thread_sort_arg {
  * 
  * @param line			line
  * @param value 		line value
+ * @param value_len		value length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, char *value, char field_delim, int key_field)
+void line_init(struct line *line, char *value, size_t value_len, char field_delim, int key_field)
 {
 	char *kend;
 
 	/* set value */
 	line->value = value;
+	line->value_len = value_len;
 
 	/* find key start */
 	line->key = line->value;
@@ -199,10 +201,11 @@ static void __line_array_grow(struct line_array *larr)
  * 
  * @param larr			line array
  * @param value 		line value
+ * @param value_len		line value length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_array_add(struct line_array *larr, char *value, char field_delim, int key_field)
+void line_array_add(struct line_array *larr, char *value, size_t value_len, char field_delim, int key_field)
 {
 	if (!larr || !value)
 		return;
@@ -211,7 +214,7 @@ void line_array_add(struct line_array *larr, char *value, char field_delim, int 
 	__line_array_grow(larr);
 
 	/* add line */
-	line_init(&larr->lines[larr->size++], value, field_delim, key_field);
+	line_init(&larr->lines[larr->size++], value, value_len, field_delim, key_field);
 }
 
 /**

@@ -14,7 +14,7 @@
 #define NR_THREADS		8
 
 /* default chunk size */
-static ssize_t chunk_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
+static ssize_t chunk_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /**
  * @brief Chunk structure.
@@ -86,11 +86,14 @@ static struct chunk *chunk_create(FILE *fp)
  */
 static void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, int key_field)
 {
+	size_t value_len;
+
 	if (!chunk || !value)
 		return;
 
-	line_array_add(chunk->line_array, xstrdup(value), field_delim, key_field);
-	chunk->size += strlen(value);
+	value_len = strlen(value);
+	line_array_add(chunk->line_array, xstrdup(value), value_len, field_delim, key_field);
+	chunk->size += value_len;
 }
 
 /**
@@ -110,7 +113,7 @@ static void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field
 
 	/* get next line */
 	if (getline(&line, &len, chunk->fp) != -1) {
-		line_init(&chunk->current_line, xstrdup(line), field_delim, key_field);
+		line_init(&chunk->current_line, xstrdup(line), strlen(line), field_delim, key_field);
 		free(line);
 	}
 }
