@@ -185,10 +185,6 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 	if (ret)
 		goto out;
 
-	/* only one chunk : no need to merge */
-	if (data_file->nr_chunks <= 1)
-		goto out;
-
 	/* merge sort */
 	ret = data_file_merge_sort(data_file);
 
