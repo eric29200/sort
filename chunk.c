@@ -34,27 +34,11 @@ struct chunk *chunk_create(FILE *fp)
 }
 
 /**
- * @brief Free a chunk.
- * 
- * @param chunk 		chunk
- */
-void chunk_free(struct chunk *chunk)
-{
-	if (chunk) {
-		fclose(chunk->fp);
-		chunk_clear(chunk);
-		line_array_free_full(chunk->line_array);
-		free(chunk);
-	}
-}
-
-
-/**
  * @brief Clear a chunk.
  * 
  * @param chunk 		chunk
  */
-void chunk_clear(struct chunk *chunk)
+static void __chunk_clear(struct chunk *chunk)
 {
 	if (!chunk)
 		return;
@@ -67,6 +51,22 @@ void chunk_clear(struct chunk *chunk)
 	if (chunk->current_line.value)
 		line_free(&chunk->current_line);
 }
+
+/**
+ * @brief Free a chunk.
+ * 
+ * @param chunk 		chunk
+ */
+void chunk_free(struct chunk *chunk)
+{
+	if (chunk) {
+		fclose(chunk->fp);
+		__chunk_clear(chunk);
+		line_array_free_full(chunk->line_array);
+		free(chunk);
+	}
+}
+
 
 /**
  * @brief Add a line to a chunk.
@@ -145,14 +145,36 @@ int chunk_write(struct chunk *chunk)
 {
 	size_t i;
 
-	if (chunk) {
-		for (i = 0; i < chunk->line_array->size; i++) {
-			if (!fputs(chunk->line_array->lines[i].value, chunk->fp)) {
-				perror("fputs");
-				return -1;
-			}
+	if (!chunk)
+		return 0;
+
+	/* write chunk */
+	for (i = 0; i < chunk->line_array->size; i++) {
+		if (!fputs(chunk->line_array->lines[i].value, chunk->fp)) {
+			perror("fputs");
+			return -1;
 		}
 	}
 
+	/* clear chunk */
+	__chunk_clear(chunk);
+
 	return 0;
+}
+
+/**
+ * @brief Sort and write a chunk on disk.
+ * 
+ * @param chunk 		chunk
+ * @param nr_threads		number of threads to use
+ *
+ * @return status
+ */
+int chunk_sort_write(struct chunk *chunk, size_t nr_threads)
+{
+	/* sort chunk */
+	line_array_sort(chunk->line_array, nr_threads);
+
+	/* write chunk */
+	return chunk_write(chunk);
 }

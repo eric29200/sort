@@ -166,9 +166,7 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 
 		/* write chunk */
 		if (current_chunk->size >= data_file->chunk_size) {
-			line_array_sort(current_chunk->line_array, data_file->nr_threads);
-			ret = chunk_write(current_chunk);
-			chunk_clear(current_chunk);
+			ret = chunk_sort_write(current_chunk, data_file->nr_threads);
 			current_chunk = NULL;
 			if (ret)
 				goto out;
@@ -176,27 +174,9 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 	}
 
 	/* write last chunk */
-	if (current_chunk) {
-		line_array_sort(current_chunk->line_array, data_file->nr_threads);
+	if (current_chunk)
+		ret = chunk_sort_write(current_chunk, data_file->nr_threads);
 
-		/* if only one chunk : write directly to the output */
-		if (data_file->nr_chunks == 1) {
-			fclose(current_chunk->fp);
-			current_chunk->fp = fopen(data_file->output_file, "w");
-			if (!current_chunk->fp) {
-				perror("fopen");
-				ret = -1;
-				goto out;
-			}
-
-			/* write header lines */
-			for (i = 0; i < data_file->nr_header_lines; i++)
-				fputs(data_file->header_lines[i], fp);
-		}
-
-		ret = chunk_write(current_chunk);
-		chunk_clear(current_chunk);
-	}
 out:
 	if (line)
 		free(line);
@@ -260,17 +240,14 @@ static int data_file_merge_sort(struct data_file *data_file)
 		/* write chunk */
 		if (global_chunk->size >= data_file->chunk_size) {
 			ret = chunk_write(global_chunk);
-			chunk_clear(global_chunk);
 			if (ret)
 				goto out;
 		}
 	}
 
 	/* write last chunk */
-	if (global_chunk->size > 0) {
+	if (global_chunk->size > 0)
 		ret = chunk_write(global_chunk);
-		chunk_clear(global_chunk);
-	}
 
 out:
 	chunk_free(global_chunk);

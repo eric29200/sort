@@ -34,13 +34,6 @@ struct chunk *chunk_create(FILE *fp);
 void chunk_free(struct chunk *chunk);
 
 /**
- * @brief Clear a chunk.
- * 
- * @param chunk 		chunk
- */
-void chunk_clear(struct chunk *chunk);
-
-/**
  * @brief Add a line to a chunk.
  * 
  * @param chunk 		chunk
@@ -77,5 +70,15 @@ int chunk_min_line(struct chunk **chunks, size_t nr_chunks);
  * @return status
  */
 int chunk_write(struct chunk *chunk);
+
+/**
+ * @brief Sort and write a chunk on disk.
+ * 
+ * @param chunk 		chunk
+ * @param nr_threads		number of threads to use
+ *
+ * @return status
+ */
+int chunk_sort_write(struct chunk *chunk, size_t nr_threads);
 
 #endif
