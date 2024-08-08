@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "mem.h"
-#include "line.h"
+#include "data_file.h"
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
@@ -13,98 +13,28 @@
 #define NR_THREADS		8
 
 /**
- * @brief Data file.
- */
-struct data_file {
-	char *			input_file;
-	char *			output_file;
-	char 			field_delim;
-	int 			key_field;
-	int 			header;
-	char *			content;
-	struct line_array *	line_array;	
-	size_t			header_len;
-	size_t			nr_threads;
-};
-
-/**
- * @brief Create a data file.
- * 
- * @param input_file		input file
- * @param field_delim 		field delimiter
- * @param key_field 		key field
- * @param header 		number of header lines
- * @param nr_threads		number of threads to use
- *
- * @return data file
- */
-static struct data_file *data_file_create(const char *input_file, const char *output_file, char field_delim, int key_field, int header, size_t nr_threads)
-{
-	struct data_file *data_file;
-
-	data_file = (struct data_file *) xmalloc(sizeof(struct data_file));
-	data_file->input_file = xstrdup(input_file);
-	data_file->output_file = xstrdup(output_file);
-	data_file->field_delim = field_delim;
-	data_file->key_field = key_field;
-	data_file->header = header;
-	data_file->content = NULL;
-	data_file->line_array = line_array_create();
-	data_file->header_len = 0;
-	data_file->nr_threads = nr_threads;
-
-	return data_file;
-}
-
-/**
- * @brief Free a data file.
- * 
- * @param data_file 		data file
- */
-static void data_file_free(struct data_file *data_file)
-{
-	if (!data_file)
-		return;
-
-	xfree(data_file->input_file);
-	xfree(data_file->output_file);
-	xfree(data_file->content);
-	line_array_free(data_file->line_array);
-}
-
-/**
  * @brief Read a data file.
  * 
  * @param data_file 		data file
  *
  * @return status
  */
-static int data_file_read(struct data_file *data_file)
+static int __data_file_read(struct data_file *data_file)
 {
 	char *ptr, *s;
 	long fp_len;
-	int ret = 0;
 	size_t i;
-	FILE *fp;
-
-	/* open input file */
-	fp = fopen(data_file->input_file, "r");
-	if (!fp) {
-		perror("fopen");
-		return -1;
-	}
 
 	/* get file length */
-	fseek(fp, 0, SEEK_END);
-	fp_len = ftell(fp);
-	rewind(fp);
+	fseek(data_file->fp_in, 0, SEEK_END);
+	fp_len = ftell(data_file->fp_in);
+	rewind(data_file->fp_in);
 
 	/* read file */
 	data_file->content = ptr = xmalloc(fp_len);
-	if (fread(data_file->content, fp_len, 1, fp) != 1) {
+	if (fread(data_file->content, fp_len, 1, data_file->fp_in) != 1) {
 		perror("fread");
-		ret = -1;
-		goto out;
+		return -1;
 	}
 
 	/* parse header */
@@ -130,11 +60,7 @@ static int data_file_read(struct data_file *data_file)
 		}
 	}
 
-out:
-	/* close input file */
-	fclose(fp);
-
-	return ret;
+	return 0;
 }
 
 /**
@@ -144,29 +70,18 @@ out:
  *
  * @return status
  */
-static int data_file_write(struct data_file *data_file)
+static int __data_file_write(struct data_file *data_file)
 {
-	FILE *fp;
 	size_t i;
 
-	/* open output file */
-	fp = fopen(data_file->output_file, "w");
-	if (!fp) {
-		perror("fopen");
-		return -1;
-	}
-	
 	/* write header */
-	fwrite(data_file->content, data_file->header_len, 1, fp);
+	fwrite(data_file->content, data_file->header_len, 1, data_file->fp_out);
 
 	/* write lines */
 	for (i = 0; i < data_file->line_array->size; i++) {
-		fwrite(data_file->line_array->lines[i].value, data_file->line_array->lines[i].value_len, 1, fp);
-		fputc('\n', fp);
+		fwrite(data_file->line_array->lines[i].value, data_file->line_array->lines[i].value_len, 1, data_file->fp_out);
+		fputc('\n', data_file->fp_out);
 	}
-
-	/* close output file */
-	fclose(fp);
 
 	return 0;
 }
@@ -192,10 +107,10 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 	remove(output_file);
 
 	/* create data file */
-	data_file = data_file_create(input_file, output_file, field_delim, key_field, header, nr_threads);
+	data_file = data_file_create(input_file, output_file, field_delim, key_field, header, nr_threads, 0);
 	
 	/* read data file */
-	ret = data_file_read(data_file);
+	ret = __data_file_read(data_file);
 	if (ret)
 		goto out;
 
@@ -203,7 +118,7 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 	line_array_sort(data_file->line_array, data_file->nr_threads);
 
 	/* write data file */
-	ret = data_file_write(data_file);
+	ret = __data_file_write(data_file);
 
 out:
 	/* free data file */

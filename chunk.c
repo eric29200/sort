@@ -4,10 +4,11 @@
  * @brief Create a chunk.
  * 
  * @param fp 		chunk file
+ * @param close_on_free	close file on free ?
  *
  * @return chunk
  */
-struct chunk *chunk_create(FILE *fp)
+struct chunk *chunk_create(FILE *fp, char close_on_free)
 {
 	struct chunk *chunk;
 
@@ -16,6 +17,7 @@ struct chunk *chunk_create(FILE *fp)
 	chunk->line_array = line_array_create();
 	chunk->size = 0;
 	chunk->current_line.value = NULL;
+	chunk->close_on_free = close_on_free;
 
 	/* set or create file */
 	if (fp) {
@@ -59,12 +61,17 @@ static void __chunk_clear(struct chunk *chunk)
  */
 void chunk_free(struct chunk *chunk)
 {
-	if (chunk) {
+	if (!chunk)
+		return;
+
+	/* close file */
+	if (chunk->close_on_free && chunk->fp)
 		fclose(chunk->fp);
-		__chunk_clear(chunk);
-		line_array_free_full(chunk->line_array);
-		free(chunk);
-	}
+		
+	/* clear memory */
+	__chunk_clear(chunk);
+	line_array_free_full(chunk->line_array);
+	free(chunk);
 }
 
 

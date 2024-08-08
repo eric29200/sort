@@ -12,6 +12,7 @@
  */
 struct chunk {
 	FILE *			fp;
+	char			close_on_free;
 	struct line_array *	line_array;	
 	ssize_t 		size;
 	struct line 		current_line;
@@ -21,10 +22,11 @@ struct chunk {
  * @brief Create a chunk.
  * 
  * @param fp 		chunk file
+ * @param close_on_free	close file on free ?
  *
  * @return chunk
  */
-struct chunk *chunk_create(FILE *fp);
+struct chunk *chunk_create(FILE *fp, char close_on_free);
 
 /**
  * @brief Free a chunk.
