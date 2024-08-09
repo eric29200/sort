@@ -17,6 +17,7 @@ struct chunk *chunk_create(FILE *fp, char close_on_free)
 	chunk->line_array = line_array_create();
 	chunk->size = 0;
 	chunk->current_line.value = NULL;
+	chunk->current_line.value_len = 0;
 	chunk->close_on_free = close_on_free;
 	chunk->next = NULL;
 
@@ -107,12 +108,24 @@ void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, in
  */
 void chunk_peek_line(struct chunk *chunk, char **line, size_t *len, char field_delim, int key_field)
 {
-	/* free previous line */
-	line_free(&chunk->current_line);
+	size_t line_len;
 
 	/* get next line */
-	if (getline(line, len, chunk->fp) != -1)
-		line_init(&chunk->current_line, xstrdup(*line), strlen(*line), field_delim, key_field);
+	if (getline(line, len, chunk->fp) == -1) {
+		line_free(&chunk->current_line);
+		return;
+	}
+
+	/* grow current line if needed */
+	line_len = strlen(*line);
+	if (line_len > chunk->current_line.value_len)
+		chunk->current_line.value = xrealloc(chunk->current_line.value, line_len + 1);
+
+	/* copy line */
+	memcpy(chunk->current_line.value, *line, line_len + 1);
+
+	/* init line */
+	line_init(&chunk->current_line, chunk->current_line.value, line_len, field_delim, key_field);
 }
 
 /**
