@@ -61,7 +61,7 @@ static int data_file_divide_and_sort(struct data_file *data_file)
 	}
 
 	/* read input file line by line */
-	while(getline(&line, &len, data_file->fp_in) != -1) {
+	while (getline(&line, &len, data_file->fp_in) != -1) {
 		/* create new chunk if needed */
 		if (!current_chunk) {
 			current_chunk = data_file_add_chunk(data_file);
