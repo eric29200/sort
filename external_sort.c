@@ -108,11 +108,8 @@ err:
  */
 static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
 {
-	struct chunk *global_chunk = NULL, *chunk;
+	struct chunk *chunk;
 	int ret = -1;
-
-	/* create a global chunk */
-	global_chunk = chunk_create(fp, 0);
 
 	/* rewind each chunk */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
@@ -134,27 +131,14 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 			break;
 
 		/* write line to global chunk */
-		chunk_add_line(global_chunk, chunk->current_line.value, field_delim, key_field);
+		fputs(chunk->current_line.value, fp);
 
 		/* peek a line from min chunk */
 		chunk_peek_line(chunk, field_delim, key_field);
-
-		/* write chunk */
-		if (global_chunk->size >= chunk_size)
-			if (chunk_write(global_chunk))
-				goto out;
 	}
-
-	/* write last chunk */
-	if (global_chunk->size > 0)
-		if (chunk_write(global_chunk))
-			goto out;
 
 	ret = 0;
 out:
-	/* clear memory */
-	chunk_free(global_chunk);
-
 	return ret;
 }
 
