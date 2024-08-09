@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include "data_file.h"
+#include "chunk.h"
 #include "mem.h"
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
@@ -17,142 +17,144 @@
 static ssize_t chunk_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /**
- * @brief Add a chunk to a data file.
+ * @brief Copy header.
  * 
- * @param data_file 		data file
- *
- * @return new chunk
- */
-static struct chunk *data_file_add_chunk(struct data_file *data_file)
-{
-	data_file->chunks = (struct chunk **) xrealloc(data_file->chunks, sizeof(struct chunk *) * (data_file->nr_chunks + 1));
-	data_file->chunks[data_file->nr_chunks] = chunk_create(NULL, 1);
-	if (!data_file->chunks[data_file->nr_chunks])
-		return NULL;
-
-	data_file->nr_chunks += 1;
-	return data_file->chunks[data_file->nr_chunks - 1];
-}
-
-/**
- * @brief Divide a file and sort it.
- * 
- * @param data_file 		data file
+ * @param fp_in 		input file
+ * @param fp_out 		output file
+ * @param header 		number of header lines
  *
  * @return status
  */
-static int data_file_divide_and_sort(struct data_file *data_file)
+static int __copy_header(FILE *fp_in, FILE *fp_out, int header)
 {
-	struct chunk *current_chunk = NULL;
 	char *line = NULL;
-	size_t len, i;
-	int ret = 0;
+	size_t len;
+	int i;
 
-	/* get header lines */
-	if (data_file->header > 0) {
-		data_file->header_lines = (char **) xmalloc(sizeof(char *) * data_file->header);
+	for (i = 0; i < header; i++) {
+		if (getline(&line, &len, fp_in) == -1)
+			break;
 
-		for (i = 0; i < data_file->header; i++) {
-			if (getline(&line, &len, data_file->fp_in) == -1)
-				goto out;
-
-			data_file->header_lines[data_file->nr_header_lines++] = xstrdup(line);
-		}
+		if (fputs(line, fp_out) == -1)
+			return -1;
 	}
+
+	return 0;
+}
+
+/**
+ * @brief Divide and sort a file.
+ * 
+ * @param fp			input file
+ * @param chunk_size 		chunk size
+ * @param field_delim		field delimiter
+ * @param key_field		key field
+ * @param header		number of header lines
+ * @param nr_threads		number of threads to use
+ *
+ * @return chunks
+ */
+static struct chunk *__divide_and_sort(FILE *fp, ssize_t chunk_size, char field_delim, int key_field, int header, size_t nr_threads)
+{
+	struct chunk *head = NULL, *chunk;
+	char *line = NULL;
+	size_t len;
+	int ret;
+
+	/* create first chunk */
+	head = chunk = chunk_create(NULL, 1);
 
 	/* read input file line by line */
-	while (getline(&line, &len, data_file->fp_in) != -1) {
-		/* create new chunk if needed */
-		if (!current_chunk) {
-			current_chunk = data_file_add_chunk(data_file);
-			if (!current_chunk) {
-				ret = -1;
-				goto out;
-			}
-		}
+	while (getline(&line, &len, fp) != -1) {
+		/* add line */
+		chunk_add_line(chunk, line, field_delim, key_field);
 
-		/* add line to current chunk */
-		chunk_add_line(current_chunk, line, data_file->field_delim, data_file->key_field);
-
-		/* write chunk */
-		if (current_chunk->size >= data_file->chunk_size) {
-			ret = chunk_sort_write(current_chunk, data_file->nr_threads);
-			current_chunk = NULL;
+		/* if chunk is full, write it on disk */
+		if (chunk->size >= chunk_size) {
+			/* sort and write */
+			ret = chunk_sort_write(chunk, nr_threads);
 			if (ret)
-				goto out;
+				goto err;
+
+			/* create a new chunk */
+			head = chunk_create(NULL, 1);
+			head->next = chunk;
+			chunk = head;
 		}
 	}
 
-	/* write last chunk */
-	if (current_chunk)
-		ret = chunk_sort_write(current_chunk, data_file->nr_threads);
+	/* sort and write last chunk */
+	ret = chunk_sort_write(chunk, nr_threads);
+	if (ret)
+		goto err;
 
-out:
-	if (line)
-		free(line);
+	return head;
+err:
+	/* free chunks */
+	for (chunk = head; chunk != NULL; chunk = chunk->next)
+		chunk_free(chunk);
 
-	return ret;
+	return NULL;
 }
 
 /**
- * @brief Merge and sort a data file.
+ * @brief Merge and sort a list of chunks.
  * 
- * @param data_file 		data file
+ * @param fp			output file
+ * @param field_delim		field delimiter
+ * @param key_field		key field
  *
  * @return status
  */
-static int data_file_merge_sort(struct data_file *data_file)
+static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
 {
-	struct chunk *global_chunk;
-	int ret = 0;
-	size_t i;
-
-	/* write header lines */
-	for (i = 0; i < data_file->nr_header_lines; i++)
-		fputs(data_file->header_lines[i], data_file->fp_out);
+	struct chunk *global_chunk = NULL, *chunk;
+	int ret = -1;
 
 	/* create a global chunk */
-	global_chunk = chunk_create(data_file->fp_out, 0);
+	global_chunk = chunk_create(fp, 0);
 
 	/* rewind each chunk */
-	for (i = 0; i < data_file->nr_chunks; i++) {
-		if (fseek(data_file->chunks[i]->fp, 0, SEEK_SET) == -1) {
-			perror("fseek");
-			ret = -1;
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
+		if (fseek(chunk->fp, 0, SEEK_SET) == -1) {
+			fprintf(stderr, "Can't rewind chunk\n");
 			goto out;
 		}
 	}
 
 	/* peek a line from each buffer */
-	for (i = 0; i < data_file->nr_chunks; i++)
-		chunk_peek_line(data_file->chunks[i], data_file->field_delim, data_file->key_field);
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
+		chunk_peek_line(chunk, field_delim, key_field);
 
+	/* merge chunks */
 	while (1) {
 		/* compute min line */
-		i = chunk_min_line(data_file->chunks, data_file->nr_chunks);
-		if (i == -1)
+		chunk = chunk_min_line(chunks);
+		if (!chunk)
 			break;
 
 		/* write line to global chunk */
-		chunk_add_line(global_chunk, data_file->chunks[i]->current_line.value, data_file->field_delim, data_file->key_field);
+		chunk_add_line(global_chunk, chunk->current_line.value, field_delim, key_field);
 
 		/* peek a line from min chunk */
-		chunk_peek_line(data_file->chunks[i], data_file->field_delim, data_file->key_field);
+		chunk_peek_line(chunk, field_delim, key_field);
 
 		/* write chunk */
-		if (global_chunk->size >= data_file->chunk_size) {
-			ret = chunk_write(global_chunk);
-			if (ret)
+		if (global_chunk->size >= chunk_size)
+			if (chunk_write(global_chunk))
 				goto out;
-		}
 	}
 
 	/* write last chunk */
 	if (global_chunk->size > 0)
-		ret = chunk_write(global_chunk);
+		if (chunk_write(global_chunk))
+			goto out;
 
+	ret = 0;
 out:
+	/* clear memory */
 	chunk_free(global_chunk);
+
 	return ret;
 }
 
@@ -171,26 +173,51 @@ out:
  */
 static int sort(const char *input_file, const char *output_file, ssize_t chunk_size, char field_delim, int key_field, int header, size_t nr_threads)
 {
-	struct data_file *data_file;
-	int ret;
+	struct chunk *chunks = NULL, *chunk;
+	FILE *fp_in = NULL, *fp_out = NULL;
+	int ret = -1;
 
 	/* remove output file */
 	remove(output_file);
+	
+	/* open input file */
+	fp_in = fopen(input_file, "r");
+	if (!fp_in) {
+		fprintf(stderr, "Can't open input file \"%s\"\n", input_file);
+		goto out;
+	}
 
-	/* create data file */
-	data_file = data_file_create(input_file, output_file, field_delim, key_field, header, nr_threads, chunk_size);
+	/* open input file */
+	fp_out = fopen(output_file, "w");
+	if (!fp_out) {
+		fprintf(stderr, "Can't open output file \"%s\"\n", output_file);
+		goto out;
+	}
+
+	/* copy header */
+	if (__copy_header(fp_in, fp_out, header))
+		goto out;
 
 	/* divide and sort */
-	ret = data_file_divide_and_sort(data_file);
-	if (ret)
+	chunks = __divide_and_sort(fp_in, chunk_size, field_delim, key_field, header, nr_threads);
+	if (!chunks)
 		goto out;
 
 	/* merge sort */
-	ret = data_file_merge_sort(data_file);
+	ret = __merge_sort(fp_out, chunks, field_delim, key_field);
 
 out:
-	/* free data file */
-	data_file_free(data_file);
+	/* free chunks */
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
+		chunk_free(chunk);
+
+	/* close input file */
+	if (fp_in)
+		fclose(fp_in);
+
+	/* close output file */
+	if (fp_out)
+		fclose(fp_out);
 
 	return ret;
 }

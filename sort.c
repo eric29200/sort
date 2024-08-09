@@ -1,9 +1,12 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
+#include "line.h"
 #include "mem.h"
-#include "data_file.h"
 
 #define INPUT_FILE		"/home/eric/dev/data/test.txt"
 #define OUTPUT_FILE	 	"/home/eric/dev/data/test.txt.sorted"
@@ -13,77 +16,155 @@
 #define NR_THREADS		8
 
 /**
- * @brief Read a data file.
+ * @brief Read input file.
  * 
- * @param data_file 		data file
+ * @param input_file 		input file
+ * @param len			input file length
+ *
+ * @return file content
+ */
+static char *__read_input_file(const char *input_file, size_t *len)
+{
+	char *buf = NULL;
+	struct stat st;
+	FILE *fp;
+
+	/* open input file */
+	fp = fopen(input_file, "r");
+	if (!fp) {
+		fprintf(stderr, "Can't open input file \"%s\"\n", input_file);
+		goto out;
+	}
+
+	/* get file size */
+	if (fstat(fileno(fp), &st)) {
+		fprintf(stderr, "Can't stat input file \"%s\"\n", input_file);
+		goto out;
+	}
+
+	/* allocate buffer */
+	*len = st.st_size;
+	buf = xmalloc(st.st_size + 1);
+
+	/* read file */
+	if (fread(buf, st.st_size, 1, fp) != 1) {
+		fprintf(stderr, "Can't read input file \"%s\"\n", input_file);
+		xfree(buf);
+		goto out;
+	}
+
+	/* end buffer */
+	buf[st.st_size] = 0;
+
+out:
+	/* close input file */
+	if (fp)
+		fclose(fp);
+
+	return buf;
+}
+
+/**
+ * @brief Write output file.
+ * 
+ * @param output_file 		output file
+ * @param output_file_len	output file length
+ * @param header 		header
+ * @param header_len 		header length
+ * @param larr 			lines array
  *
  * @return status
  */
-static int __data_file_read(struct data_file *data_file)
+static int __write_output_file(const char *output_file, size_t output_file_len, const char *header, size_t header_len, struct line_array *larr)
 {
-	char *ptr, *s;
-	long fp_len;
+	int ret = -1;
+	FILE *fp;
 	size_t i;
 
-	/* get file length */
-	fseek(data_file->fp_in, 0, SEEK_END);
-	fp_len = ftell(data_file->fp_in);
-	rewind(data_file->fp_in);
-
-	/* read file */
-	data_file->content = ptr = xmalloc(fp_len);
-	if (fread(data_file->content, fp_len, 1, data_file->fp_in) != 1) {
-		perror("fread");
-		return -1;
+	/* open output file */
+	fp = fopen(output_file, "w");
+	if (!fp) {
+		fprintf(stderr, "Can't open output file \"%s\"\n", output_file);
+		goto out;
 	}
 
-	/* parse header */
-	for (i = 0; i < data_file->header; i++) {
-		/* find end of line */
-		for (s = ptr; *ptr != '\n' && *ptr != 0; ptr++);
+	/* allocate output file */
+	if (fallocate(fileno(fp), 0, 0, output_file_len)) {
+		fprintf(stderr, "Can't allocate output file \"%s\"\n", output_file);
+		goto out;
+	}
+
+	/* write header */
+	if (fwrite(header, header_len, 1, fp) != 1) {
+		fprintf(stderr, "Can't write output file \"%s\"\n", output_file);
+		goto out;
+	}
+
+	/* write content */
+	for (i = 0; i < larr->size; i++)
+		if (fwrite(larr->lines[i].value, larr->lines[i].value_len, 1, fp) != 1)
+			goto out;
+
+	ret = 0;
+out:
+	/* close output file */
+	fclose(fp);
+
+	return ret;
+}
+
+/**
+ * @brief Parse header.
+ * 
+ * @param buf 			input file buffer
+ * @param header 		number of header lines
+ *
+ * @return header length
+ */
+static size_t __parse_header(const char *buf, int header)
+{
+	const char *ptr;
+	int i;
+	
+	for (i = 0, ptr = buf; i < header; i++) {
+		for (; *ptr != '\n' && *ptr != 0; ptr++);
 		if (*ptr == '\n')
 			ptr++;
 	}
 
-	/* set header length */
-	data_file->header_len = ptr - data_file->content;
+	return ptr - buf;
+}
+
+/**
+ * @brief Parse content.
+ * 
+ * @param buf 			input file buffer
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ *
+ * @return content
+ */
+static struct line_array *__parse_content(char *buf, char field_delim, int key_field)
+{
+	struct line_array *larr;
+	char *ptr, *s;
+
+	/* create line array */
+	larr = line_array_create();
 
 	/* parse content */
-	for (s = ptr; *ptr != 0; ptr++) {
+	for (ptr = s = buf; *ptr != 0; ptr++) {
 		/* new line */
 		if (*ptr == '\n') {
 			/* add line */
-			line_array_add(data_file->line_array, s, ptr - s, data_file->field_delim, data_file->key_field);
+			line_array_add(larr, s, ptr - s + 1, field_delim, key_field);
 
 			/* go to next line */
 			s = ptr + 1;
 		}
 	}
 
-	return 0;
-}
-
-/**
- * @brief Write a data file.
- * 
- * @param data_file 		data file
- *
- * @return status
- */
-static int __data_file_write(struct data_file *data_file)
-{
-	size_t i;
-
-	/* write header */
-	fwrite(data_file->content, data_file->header_len, 1, data_file->fp_out);
-
-	/* write lines */
-	for (i = 0; i < data_file->line_array->size; i++) {
-		fwrite(data_file->line_array->lines[i].value, data_file->line_array->lines[i].value_len, 1, data_file->fp_out);
-		fputc('\n', data_file->fp_out);
-	}
-
-	return 0;
+	return larr;
 }
 
 /**
@@ -100,29 +181,34 @@ static int __data_file_write(struct data_file *data_file)
  */
 static int sort(const char *input_file, const char *output_file, char field_delim, int key_field, int header, size_t nr_threads)
 {
-	struct data_file *data_file;
+	size_t header_len, buf_len;
+	struct line_array *larr;
+	char *buf;
 	int ret;
 
 	/* remove output file */
 	remove(output_file);
 
-	/* create data file */
-	data_file = data_file_create(input_file, output_file, field_delim, key_field, header, nr_threads, 0);
-	
-	/* read data file */
-	ret = __data_file_read(data_file);
-	if (ret)
-		goto out;
+	/* load input file */
+	buf = __read_input_file(input_file, &buf_len);
+	if (!buf)
+		return -1;
 
-	/* sort data file */
-	line_array_sort(data_file->line_array, data_file->nr_threads);
+	/* parse header */
+	header_len = __parse_header(buf, header);
 
-	/* write data file */
-	ret = __data_file_write(data_file);
+	/* parse content */
+	larr = __parse_content(buf + header_len, field_delim, key_field);
 
-out:
-	/* free data file */
-	data_file_free(data_file);
+	/* sort content */
+	line_array_sort(larr, nr_threads);
+
+	/* write output file */
+	ret = __write_output_file(output_file, buf_len, buf, header_len, larr);
+
+	/* free memory */
+	line_array_free(larr);
+	free(buf);
 
 	return ret;
 }

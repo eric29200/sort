@@ -16,6 +16,7 @@ struct chunk {
 	struct line_array *	line_array;	
 	ssize_t 		size;
 	struct line 		current_line;
+	struct chunk *		next;
 };
 
 /**
@@ -58,11 +59,10 @@ void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field);
  * @brief Get minimum line from a list of chunks.
  * 
  * @param chunks 		chunks
- * @param nr_chunks 		number of chunks
  *
- * @return chunk index containing minimum line
+ * @return chunk containing minimum line
  */
-int chunk_min_line(struct chunk **chunks, size_t nr_chunks);
+struct chunk *chunk_min_line(struct chunk *chunks);
 
 /**
  * @brief Write a chunk on disk.

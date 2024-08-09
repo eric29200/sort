@@ -18,6 +18,7 @@ struct chunk *chunk_create(FILE *fp, char close_on_free)
 	chunk->size = 0;
 	chunk->current_line.value = NULL;
 	chunk->close_on_free = close_on_free;
+	chunk->next = NULL;
 
 	/* set or create file */
 	if (fp) {
@@ -121,21 +122,19 @@ void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field)
  * @brief Get minimum line from a list of chunks.
  * 
  * @param chunks 		chunks
- * @param nr_chunks 		number of chunks
  *
- * @return chunk index containing minimum line
+ * @return chunk containing minimum line
  */
-int chunk_min_line(struct chunk **chunks, size_t nr_chunks)
+struct chunk *chunk_min_line(struct chunk *chunks)
 {
-	int min = -1;
-	size_t i;
+	struct chunk *chunk, *min = NULL;
 
-	for (i = 0; i < nr_chunks; i++) {
-		if (!chunks[i]->current_line.value)
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
+		if (!chunk->current_line.value)
 			continue;
 
-		if (min == -1 || line_compare(&chunks[i]->current_line, &chunks[min]->current_line) < 0)
-			min = i;
+		if (!min || line_compare(&chunk->current_line, &min->current_line) < 0)
+			min = chunk;
 	}
 
 	return min;
