@@ -108,6 +108,8 @@ err:
 static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
 {
 	struct chunk *chunk;
+	char *line = NULL;
+	size_t len;
 	int ret = -1;
 
 	/* rewind each chunk */
@@ -120,7 +122,7 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 
 	/* peek a line from each buffer */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
-		chunk_peek_line(chunk, field_delim, key_field);
+		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
 
 	/* merge chunks */
 	while (1) {
@@ -133,11 +135,12 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 		fputs(chunk->current_line.value, fp);
 
 		/* peek a line from min chunk */
-		chunk_peek_line(chunk, field_delim, key_field);
+		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
 	}
 
 	ret = 0;
 out:
+	xfree(line);
 	return ret;
 }
 

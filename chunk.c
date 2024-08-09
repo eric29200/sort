@@ -100,22 +100,19 @@ void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, in
  * @brief Peek a line from a chunk.
  * 
  * @param chunk 		chunk
+ * @param line			line
+ * @param len			line length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field)
+void chunk_peek_line(struct chunk *chunk, char **line, size_t *len, char field_delim, int key_field)
 {
-	char *line = NULL;
-	size_t len;
-
 	/* free previous line */
 	line_free(&chunk->current_line);
 
 	/* get next line */
-	if (getline(&line, &len, chunk->fp) != -1) {
-		line_init(&chunk->current_line, xstrdup(line), strlen(line), field_delim, key_field);
-		free(line);
-	}
+	if (getline(line, len, chunk->fp) != -1)
+		line_init(&chunk->current_line, xstrdup(*line), strlen(*line), field_delim, key_field);
 }
 
 /**
@@ -156,8 +153,8 @@ int chunk_write(struct chunk *chunk)
 
 	/* write chunk */
 	for (i = 0; i < chunk->line_array->size; i++) {
-		if (!fputs(chunk->line_array->lines[i].value, chunk->fp)) {
-			perror("fputs");
+		if (fwrite(chunk->line_array->lines[i].value, chunk->line_array->lines[i].value_len, 1, chunk->fp) != 1) {
+			fprintf(stderr, "Can't write chunk\n");
 			return -1;
 		}
 	}

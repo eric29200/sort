@@ -50,10 +50,12 @@ void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, in
  * @brief Peek a line from a chunk.
  * 
  * @param chunk 		chunk
+ * @param line			line
+ * @param len			line length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void chunk_peek_line(struct chunk *chunk, char field_delim, int key_field);
+void chunk_peek_line(struct chunk *chunk, char **line, size_t *len, char field_delim, int key_field);
 
 /**
  * @brief Get minimum line from a list of chunks.
