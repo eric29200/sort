@@ -1,4 +1,4 @@
-CFLAGS  := -Wall -O2 -g
+CFLAGS  := -Wall -Wextra -O2 -g
 CC      := gcc
 
 all: sort external_sort

@@ -42,7 +42,7 @@ void line_init(struct line *line, char *value, size_t value_len, char field_deli
 	/* compute key end and length */
 	if (line->key) {
 		kend = strchr(line->key, field_delim);
-		line->key_len = kend ? kend - line->key : strlen(line->key);
+		line->key_len = kend ? (size_t) (kend - line->key) : strlen(line->key);
 	} else {
 		line->key_len = 0;
 	}

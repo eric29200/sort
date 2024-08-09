@@ -49,12 +49,11 @@ static int __copy_header(FILE *fp_in, FILE *fp_out, int header)
  * @param chunk_size 		chunk size
  * @param field_delim		field delimiter
  * @param key_field		key field
- * @param header		number of header lines
  * @param nr_threads		number of threads to use
  *
  * @return chunks
  */
-static struct chunk *__divide_and_sort(FILE *fp, ssize_t chunk_size, char field_delim, int key_field, int header, size_t nr_threads)
+static struct chunk *__divide_and_sort(FILE *fp, ssize_t chunk_size, char field_delim, int key_field, size_t nr_threads)
 {
 	struct chunk *head = NULL, *chunk;
 	char *line = NULL;
@@ -183,7 +182,7 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 		goto out;
 
 	/* divide and sort */
-	chunks = __divide_and_sort(fp_in, chunk_size, field_delim, key_field, header, nr_threads);
+	chunks = __divide_and_sort(fp_in, chunk_size, field_delim, key_field, nr_threads);
 	if (!chunks)
 		goto out;
 
@@ -211,7 +210,7 @@ out:
  * 
  * @return status
  */
-int main(int argc, char **argv)
+int main()
 {
 	return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }
