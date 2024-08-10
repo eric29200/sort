@@ -156,6 +156,9 @@ static struct line_array *__parse_content(char *buf, char field_delim, int key_f
 	for (ptr = s = buf; *ptr != 0; ptr++) {
 		/* new line */
 		if (*ptr == '\n') {
+			/* end line */
+			*ptr = 0;
+
 			/* add line */
 			line_array_add(larr, s, ptr - s + 1, field_delim, key_field);
 
