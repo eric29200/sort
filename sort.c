@@ -153,17 +153,17 @@ static struct line_array *__parse_content(char *buf, char field_delim, int key_f
 	larr = line_array_create();
 
 	/* parse content */
-	for (ptr = s = buf; *ptr != 0; ptr++) {
-		/* new line */
+	for (s = buf; *s != 0;) {
+		/* find end of line */
+		ptr = strchrnul(s, '\n');
+
+		/* add line */
 		if (*ptr == '\n') {
-			/* end line */
-			*ptr = 0;
-
-			/* add line */
 			line_array_add(larr, s, ptr - s + 1, field_delim, key_field);
-
-			/* go to next line */
 			s = ptr + 1;
+		} else {
+			line_array_add(larr, s, ptr - s, field_delim, key_field);
+			break;
 		}
 	}
 

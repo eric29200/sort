@@ -39,10 +39,17 @@ void line_init(struct line *line, char *value, size_t value_len, char field_deli
 	while (key_field-- && (line->key = strchr(line->key, field_delim)))
 		line->key++;
 
+	/* key out of value */
+	if (line->key >= value + value_len)
+		line->key = NULL;
+
 	/* compute key end and length */
 	if (line->key) {
-		kend = strchr(line->key, field_delim);
-		line->key_len = kend ? (size_t) (kend - line->key) : strlen(line->key);
+		kend = strchrnul(line->key, field_delim);
+		if (kend > value + value_len)
+			kend = value + value_len;
+
+		line->key_len = (size_t) (kend - line->key);
 	} else {
 		line->key_len = 0;
 	}
