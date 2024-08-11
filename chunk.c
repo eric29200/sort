@@ -15,7 +15,6 @@ struct chunk *chunk_create(FILE *fp, char close_on_free)
 	/* allocate a new chunk */
 	chunk = xmalloc(sizeof(struct chunk));
 	chunk->line_array = line_array_create();
-	chunk->size = 0;
 	chunk->current_line.value = NULL;
 	chunk->current_line.value_len = 0;
 	chunk->close_on_free = close_on_free;
@@ -49,7 +48,6 @@ void chunk_clear(struct chunk *chunk)
 
 	/* clear lines */
 	line_array_clear(chunk->line_array);
-	chunk->size = 0;
 
 	/* clear current line */
 	if (chunk->current_line.value)
@@ -91,7 +89,6 @@ void chunk_add_line(struct chunk *chunk, char *value, size_t value_len, char fie
 		return;
 
 	line_array_add(chunk->line_array, value, value_len, field_delim, key_field);
-	chunk->size += value_len;
 }
 
 /**

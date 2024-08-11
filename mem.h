@@ -29,13 +29,4 @@ void *xrealloc(void *ptr, size_t size);
  */
 void xfree(void *ptr);
 
-/**
- * @brief Duplicate a string or exit.
- * 
- * @param s 		string to duplicate
- *
- * @return duplicated string
- */
-void *xstrdup(const char *s);
-
 #endif

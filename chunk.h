@@ -14,7 +14,6 @@ struct chunk {
 	FILE *			fp;
 	char			close_on_free;
 	struct line_array *	line_array;	
-	ssize_t 		size;
 	struct line 		current_line;
 	struct chunk *		next;
 };
