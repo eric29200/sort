@@ -56,39 +56,61 @@ static int __copy_header(FILE *fp_in, FILE *fp_out, int header)
 static struct chunk *__divide_and_sort(FILE *fp, ssize_t chunk_size, char field_delim, int key_field, size_t nr_threads)
 {
 	struct chunk *head = NULL, *chunk;
-	char *line = NULL;
-	size_t len;
+	char *buf, *ptr, *s;
+	size_t len, off = 0;
 	int ret;
 
-	/* create first chunk */
-	head = chunk = chunk_create(NULL, 1);
+	/* allocate buffer */
+	buf = xmalloc(chunk_size + 1);
 
-	/* read input file line by line */
-	while (getline(&line, &len, fp) != -1) {
-		/* add line */
-		chunk_add_line(chunk, line, field_delim, key_field);
+	for (;;) {
+		/* read next chunk */
+		len = fread(buf + off, 1, chunk_size - off, fp);
+		if (len <= 0 && off <= 0)
+			break;
 
-		/* if chunk is full, write it on disk */
-		if (chunk->size >= chunk_size) {
-			/* sort and write */
-			ret = chunk_sort_write(chunk, nr_threads);
-			if (ret)
-				goto err;
+		/* end chunk */
+		buf[len + off] = 0;
+		off = 0;
+	
+		/* create chunk */
+		chunk = chunk_create(NULL, 1);
+		chunk->next = head;
+		head = chunk;
 
-			/* create a new chunk */
-			head = chunk_create(NULL, 1);
-			head->next = chunk;
-			chunk = head;
+		/* parse content */
+		for (s = buf; *s != 0;) {
+			/* find end of line */
+			ptr = strchrnul(s, '\n');
+
+			/* add line */
+			if (*ptr == '\n') {
+				chunk_add_line(chunk, s, ptr - s + 1, field_delim, key_field);
+				s = ptr + 1;
+			} else {
+				off = ptr - s;
+				break;
+			}
 		}
+
+		/* sort and write chunk */
+		ret = chunk_sort_write(chunk, nr_threads);
+		if (ret)
+			goto err;
+
+		/* remember last line */
+		if (off > 0)
+			memcpy(buf, s, off);
 	}
 
-	/* sort and write last chunk */
-	ret = chunk_sort_write(chunk, nr_threads);
-	if (ret)
-		goto err;
+	/* free buffer */
+	xfree(buf);
 
 	return head;
 err:
+	/* free buffer */
+	xfree(buf);
+
 	/* free chunks */
 	for (chunk = head; chunk != NULL; chunk = chunk->next)
 		chunk_free(chunk);

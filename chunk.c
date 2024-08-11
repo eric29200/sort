@@ -42,13 +42,13 @@ struct chunk *chunk_create(FILE *fp, char close_on_free)
  * 
  * @param chunk 		chunk
  */
-static void __chunk_clear(struct chunk *chunk)
+void chunk_clear(struct chunk *chunk)
 {
 	if (!chunk)
 		return;
 
 	/* clear lines */
-	line_array_clear_full(chunk->line_array);
+	line_array_clear(chunk->line_array);
 	chunk->size = 0;
 
 	/* clear current line */
@@ -71,29 +71,26 @@ void chunk_free(struct chunk *chunk)
 		fclose(chunk->fp);
 		
 	/* clear memory */
-	__chunk_clear(chunk);
-	line_array_free_full(chunk->line_array);
+	chunk_clear(chunk);
+	line_array_free(chunk->line_array);
 	free(chunk);
 }
-
 
 /**
  * @brief Add a line to a chunk.
  * 
  * @param chunk 		chunk
  * @param value 		line value
+ * @param value_len		line value length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, int key_field)
+void chunk_add_line(struct chunk *chunk, char *value, size_t value_len, char field_delim, int key_field)
 {
-	size_t value_len;
-
 	if (!chunk || !value)
 		return;
 
-	value_len = strlen(value);
-	line_array_add(chunk->line_array, xstrdup(value), value_len, field_delim, key_field);
+	line_array_add(chunk->line_array, value, value_len, field_delim, key_field);
 	chunk->size += value_len;
 }
 
@@ -173,7 +170,7 @@ int chunk_write(struct chunk *chunk)
 	}
 
 	/* clear chunk */
-	__chunk_clear(chunk);
+	chunk_clear(chunk);
 
 	return 0;
 }

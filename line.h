@@ -66,20 +66,6 @@ struct line_array *line_array_create();
 void line_array_free(struct line_array *larr);
 
 /**
- * @brief Free a line array.
- * 
- * @param larr 		line array
- */
-void line_array_free_full(struct line_array *larr);
-
-/**
- * @brief Clear a line array.
- * 
- * @param larr 		line array
- */
-void line_array_clear_full(struct line_array *larr);
-
-/**
  * @brief Clear a line array.
  * 
  * @param larr 		line array

@@ -125,20 +125,6 @@ void line_array_free(struct line_array *larr)
 }
 
 /**
- * @brief Free a line array.
- * 
- * @param larr 		line array
- */
-void line_array_free_full(struct line_array *larr)
-{
-	if (!larr)
-		return;
-
-	line_array_clear_full(larr);
-	free(larr);
-}
-
-/**
  * @brief Clear a line array.
  * 
  * @param larr 		line array
@@ -150,32 +136,6 @@ void line_array_clear(struct line_array *larr)
 
 	/* clear lines */
 	if (larr->lines) {
-		free(larr->lines);
-		larr->lines = NULL;
-	}
-
-	/* reset size */
-	larr->size = 0;
-	larr->capacity = 0;
-}
-
-/**
- * @brief Clear a line array.
- * 
- * @param larr 		line array
- */
-void line_array_clear_full(struct line_array *larr)
-{
-	size_t i;
-
-	if (!larr)
-		return;
-
-	/* clear lines */
-	if (larr->lines) {
-		for (i = 0; i < larr->size; i++)
-			line_free(&larr->lines[i]);
-
 		free(larr->lines);
 		larr->lines = NULL;
 	}

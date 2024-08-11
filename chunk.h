@@ -37,14 +37,22 @@ struct chunk *chunk_create(FILE *fp, char close_on_free);
 void chunk_free(struct chunk *chunk);
 
 /**
+ * @brief Clear a chunk.
+ * 
+ * @param chunk 		chunk
+ */
+void chunk_clear(struct chunk *chunk);
+
+/**
  * @brief Add a line to a chunk.
  * 
  * @param chunk 		chunk
  * @param value 		line value
+ * @param value_len		line value length
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void chunk_add_line(struct chunk *chunk, const char *value, char field_delim, int key_field);
+void chunk_add_line(struct chunk *chunk, char *value, size_t value_len, char field_delim, int key_field);
 
 /**
  * @brief Peek a line from a chunk.
