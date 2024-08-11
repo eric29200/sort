@@ -127,9 +127,11 @@ static size_t __parse_header(const char *buf, int header)
 	int i;
 	
 	for (i = 0, ptr = buf; i < header; i++) {
-		for (; *ptr != '\n' && *ptr != 0; ptr++);
+		ptr = strchrnul(ptr, '\n');
 		if (*ptr == '\n')
 			ptr++;
+		else
+			break;
 	}
 
 	return ptr - buf;
