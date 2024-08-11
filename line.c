@@ -5,7 +5,8 @@
 #include "line.h"
 #include "mem.h"
 
-#define NR_BUCKETS		256
+#define NR_BUCKETS			256
+#define INITIAL_SIZE			10
 
 /**
  * @brief Thread sort argument.
@@ -102,9 +103,9 @@ struct line_array *line_array_create()
 	struct line_array *larr;
 
 	larr = (struct line_array *) xmalloc(sizeof(struct line_array));
-	larr->lines = NULL;
+	larr->capacity = INITIAL_SIZE;
 	larr->size = 0;
-	larr->capacity = 0;
+	larr->lines = (struct line *) xmalloc(INITIAL_SIZE * sizeof(struct line));
 
 	return larr;
 }
@@ -196,8 +197,6 @@ static void __line_array_grow(struct line_array *larr)
 
 	/* set new capacity */
 	larr->capacity = larr->capacity + (larr->capacity >> 1);
-	if (larr->capacity < 10)
-		larr->capacity = 10;
 	
 	/* reallocate lines */
 	larr->lines = (struct line *) xrealloc(larr->lines, sizeof(struct line) * larr->capacity);
