@@ -95,27 +95,18 @@ err:
  * @param fp			output file
  * @param field_delim		field delimiter
  * @param key_field		key field
- *
- * @return status
  */
-static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
+static void __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
 {
 	struct chunk *chunk;
 	char *line = NULL;
-	int ret = -1;
 	size_t len;
 
-	/* rewind each chunk */
-	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
-		if (fseek(chunk->fp, 0, SEEK_SET) == -1) {
-			fprintf(stderr, "Can't rewind chunk\n");
-			goto out;
-		}
-	}
-
 	/* peek a line from each buffer */
-	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
+		rewind(chunk->fp);
 		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
+	}
 
 	/* merge chunks */
 	for (;;) {
@@ -131,10 +122,8 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
 	}
 
-	ret = 0;
-out:
+	/* free line */
 	xfree(line);
-	return ret;
 }
 
 /**
@@ -172,7 +161,9 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 		goto out;
 
 	/* merge sort */
-	ret = __merge_sort(fp_out, chunks, field_delim, key_field);
+	__merge_sort(fp_out, chunks, field_delim, key_field);
+
+	ret = 0;
 out:
 	/* free chunks */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
