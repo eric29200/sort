@@ -32,14 +32,22 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 {
 	struct buffered_reader *br = NULL;
 	struct chunk *chunk = NULL;
+	FILE *fp_in = NULL;
 	int ret = -1;
 	size_t i;
 
 	/* remove output file */
 	remove(output_file);
 
+	/* open input file */
+	fp_in = fopen(input_file, "r");
+	if (!fp_in) {
+		fprintf(stderr, "Can't open input file \"%s\"\n", output_file);
+		goto out;
+	}
+
 	/* create buffered reader */
-	br = buffered_reader_create(input_file, field_delim, key_field, 0);
+	br = buffered_reader_create(fp_in, field_delim, key_field, 0);
 	if (!br)
 		goto out;
 
@@ -72,6 +80,10 @@ out:
 	/* free buffered reader */
 	if (br)
 		buffered_reader_free(br);
+
+	/* close input file */
+	if (fp_in)
+		fclose(fp_in);
 
 	return ret;
 }

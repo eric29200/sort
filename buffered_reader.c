@@ -9,14 +9,14 @@
 /**
  * @brief Create a buffered reader.
  * 
- * @param input_file		input file
+ * @param fp			input file
  * @param field_delim		field delimiter
  * @param key_field		key field
  * @param chunk_size		chunk size
  * 
  * @return buffered reader
  */
-struct buffered_reader *buffered_reader_create(const char *input_file, char field_delim, int key_field, ssize_t chunk_size)
+struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, ssize_t chunk_size)
 {
 	struct buffered_reader *br;
 	struct stat st;
@@ -26,24 +26,17 @@ struct buffered_reader *buffered_reader_create(const char *input_file, char fiel
 	br->field_delim = field_delim;
 	br->key_field = key_field;
 	br->chunk_size = chunk_size;
-	br->fp = NULL;
+	br->fp = fp;
 	br->buf = NULL;
 	br->buf_len = 0;
 	br->off = 0;
 	br->header_lines = NULL;
 	br->nr_header_lines = 0;
 
-	/* open input file */
-	br->fp = fopen(input_file, "r");
-	if (!br->fp) {
-		fprintf(stderr, "Can't open input file \"%s\"\n", input_file);
-		goto err;
-	}
-
 	/* fix chunk size */
 	if (chunk_size <= 0) {
 		if (fstat(fileno(br->fp), &st)) {
-			fprintf(stderr, "Can't stat input file \"%s\"\n", input_file);
+			fprintf(stderr, "Can't stat input file\n");
 			goto err;
 		}
 
@@ -70,10 +63,6 @@ void buffered_reader_free(struct buffered_reader *br)
 
 	if (!br)
 		return;
-
-	/* close input file */
-	if (br->fp)
-		fclose(br->fp);
 
 	/* free header lines */
 	if (br->header_lines) {

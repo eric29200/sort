@@ -24,14 +24,14 @@ struct buffered_reader {
 /**
  * @brief Create a buffered reader.
  * 
- * @param input_file		input file
+ * @param fp			input file
  * @param field_delim		field delimiter
  * @param key_field		key field
  * @param chunk_size		chunk size
  * 
  * @return buffered reader
  */
-struct buffered_reader *buffered_reader_create(const char *input_file, char field_delim, int key_field, ssize_t chunk_size);
+struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, ssize_t chunk_size);
 
 /**
  * @brief Free a buffered reader.

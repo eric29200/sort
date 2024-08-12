@@ -28,13 +28,21 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 {
 	struct chunk *head = NULL, *chunk;
 	struct buffered_reader *br = NULL;
+	FILE *fp_in = NULL;
 	size_t i;
 	int ret;
 
+	/* open input file */
+	fp_in = fopen(input_file, "r");
+	if (!fp_in) {
+		fprintf(stderr, "Can't open input file \"%s\"\n", input_file);
+		goto err;
+	}
+
 	/* create buffered reader */
-	br = buffered_reader_create(input_file, field_delim, key_field, chunk_size);
+	br = buffered_reader_create(fp_in, field_delim, key_field, chunk_size);
 	if (!br)
-		return NULL;
+		goto err;
 
 	/* read/write header */
 	buffered_reader_read_header(br, header);
@@ -73,6 +81,10 @@ err:
 	/* free chunks */
 	for (chunk = head; chunk != NULL; chunk = chunk->next)
 		chunk_free(chunk);
+
+	/* close input file */
+	if (fp_in)
+		fclose(fp_in);
 
 	return NULL;
 }
