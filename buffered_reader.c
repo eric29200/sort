@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #include "buffered_reader.h"
@@ -117,7 +118,7 @@ struct chunk *buffered_reader_read_chunk(struct buffered_reader *br)
 	memcpy(br->buf, br->buf + br->buf_len - br->off, br->off);
 
 	/* read next chunk */
-	len = fread(br->buf + br->off, 1, br->chunk_size - br->off, br->fp);
+	len = read(fileno(br->fp), br->buf + br->off, br->chunk_size - br->off);
 	if (len <= 0)
 		return NULL;
 
