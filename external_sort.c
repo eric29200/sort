@@ -115,7 +115,7 @@ static void __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int k
 		if (!chunk)
 			break;
 
-		/* write line to global chunk */
+		/* write line to output file */
 		fputs(chunk->current_line.value, fp);
 
 		/* peek a line from min chunk */
