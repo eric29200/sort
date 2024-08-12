@@ -1,39 +1,46 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include "chunk.h"
+#include "mem.h"
 
 /**
  * @brief Create a chunk.
  * 
- * @param fp 		chunk file
- * @param close_on_free	close file on free ?
- *
  * @return chunk
  */
-struct chunk *chunk_create(FILE *fp, char close_on_free)
+struct chunk *chunk_create()
 {
 	struct chunk *chunk;
 
-	/* allocate a new chunk */
-	chunk = xmalloc(sizeof(struct chunk));
-	chunk->line_array = line_array_create();
+	chunk = (struct chunk *) xmalloc(sizeof(struct chunk));
+	chunk->larr = line_array_create();
 	chunk->current_line.value = NULL;
 	chunk->current_line.value_len = 0;
-	chunk->close_on_free = close_on_free;
+	chunk->fp = NULL;
 	chunk->next = NULL;
 
-	/* set or create file */
-	if (fp) {
-		chunk->fp = fp;
-	} else {
-		/* create temp file if no output file specified */
-		chunk->fp = tmpfile();
-		if (!chunk->fp) {
-			perror("tmpfile");
-			xfree(chunk);
-			return NULL;
-		}
-	}
-
 	return chunk;
+}
+
+/**
+ * @brief Free a chunk.
+ * 
+ * @param chunk 	chunk
+ */
+void chunk_free(struct chunk *chunk)
+{
+	if (!chunk)
+		return;
+
+	/* close file */
+	if (chunk->fp)
+		fclose(chunk->fp);
+
+	/* free memory */
+	chunk_clear(chunk);
+	line_array_free(chunk->larr);
+	free(chunk);
 }
 
 /**
@@ -47,48 +54,55 @@ void chunk_clear(struct chunk *chunk)
 		return;
 
 	/* clear lines */
-	line_array_clear(chunk->line_array);
+	line_array_clear(chunk->larr);
 
 	/* clear current line */
 	if (chunk->current_line.value)
 		line_free(&chunk->current_line);
 }
 
+
 /**
- * @brief Free a chunk.
+ * @brief Write a chunk on disk.
  * 
  * @param chunk 		chunk
+ *
+ * @return status
  */
-void chunk_free(struct chunk *chunk)
+static int __chunk_write(struct chunk *chunk)
 {
-	if (!chunk)
-		return;
+	size_t i;
 
-	/* close file */
-	if (chunk->close_on_free && chunk->fp)
-		fclose(chunk->fp);
-		
-	/* clear memory */
-	chunk_clear(chunk);
-	line_array_free(chunk->line_array);
-	free(chunk);
+	if (!chunk)
+		return 0;
+
+	/* write chunk */
+	for (i = 0; i < chunk->larr->size; i++) {
+		if (fwrite(chunk->larr->lines[i].value, chunk->larr->lines[i].value_len, 1, chunk->fp) != 1) {
+			fprintf(stderr, "Can't write chunk\n");
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 /**
- * @brief Add a line to a chunk.
+ * @brief Sort and write a chunk on disk.
  * 
  * @param chunk 		chunk
- * @param value 		line value
- * @param value_len		line value length
- * @param field_delim 		field delimiter
- * @param key_field 		key field
+ * @param fp			output file
+ * @param nr_threads		number of threads to use
+ *
+ * @return status
  */
-void chunk_add_line(struct chunk *chunk, char *value, size_t value_len, char field_delim, int key_field)
+int chunk_sort_write(struct chunk *chunk, size_t nr_threads)
 {
-	if (!chunk || !value)
-		return;
+	/* sort chunk */
+	line_array_sort(chunk->larr, nr_threads);
 
-	line_array_add(chunk->line_array, value, value_len, field_delim, key_field);
+	/* write chunk */
+	return __chunk_write(chunk);
 }
 
 /**
@@ -142,49 +156,4 @@ struct chunk *chunk_min_line(struct chunk *chunks)
 	}
 
 	return min;
-}
-
-/**
- * @brief Write a chunk on disk.
- * 
- * @param chunk 		chunk
- *
- * @return status
- */
-int chunk_write(struct chunk *chunk)
-{
-	size_t i;
-
-	if (!chunk)
-		return 0;
-
-	/* write chunk */
-	for (i = 0; i < chunk->line_array->size; i++) {
-		if (fwrite(chunk->line_array->lines[i].value, chunk->line_array->lines[i].value_len, 1, chunk->fp) != 1) {
-			fprintf(stderr, "Can't write chunk\n");
-			return -1;
-		}
-	}
-
-	/* clear chunk */
-	chunk_clear(chunk);
-
-	return 0;
-}
-
-/**
- * @brief Sort and write a chunk on disk.
- * 
- * @param chunk 		chunk
- * @param nr_threads		number of threads to use
- *
- * @return status
- */
-int chunk_sort_write(struct chunk *chunk, size_t nr_threads)
-{
-	/* sort chunk */
-	line_array_sort(chunk->line_array, nr_threads);
-
-	/* write chunk */
-	return chunk_write(chunk);
 }

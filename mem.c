@@ -49,3 +49,19 @@ void xfree(void *ptr)
 	if (ptr)
 		free(ptr);
 }
+
+/**
+ * @brief Strdup or exit.
+ * 
+ * @param s 		string to duplicate
+ *
+ * @return duplicated string
+ */
+char *xstrdup(const char *s)
+{
+	char *r = strdup(s);
+	if (!r)
+		err(2, NULL);
+
+	return r;
+}

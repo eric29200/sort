@@ -3,10 +3,10 @@ CC      := gcc
 
 all: sort external_sort
 
-sort: mem.o line.o sort.o
+sort: mem.o line.o chunk.o buffered_reader.o sort.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-external_sort: mem.o line.o chunk.o external_sort.o
+external_sort: mem.o line.o chunk.o buffered_reader.o external_sort.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .o: .c 
