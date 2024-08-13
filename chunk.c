@@ -18,6 +18,8 @@ struct chunk *chunk_create()
 	chunk->current_line.value = NULL;
 	chunk->current_line.value_len = 0;
 	chunk->fp = NULL;
+	chunk->br = NULL;
+	chunk->larr_idx = 0;
 	chunk->next = NULL;
 
 	return chunk;
@@ -37,6 +39,10 @@ void chunk_free(struct chunk *chunk)
 	if (chunk->fp)
 		fclose(chunk->fp);
 
+	/* free buffered reader */
+	if (chunk->br)
+		buffered_reader_free(chunk->br);
+
 	/* free memory */
 	chunk_clear(chunk);
 	line_array_free(chunk->larr);
@@ -50,15 +56,8 @@ void chunk_free(struct chunk *chunk)
  */
 void chunk_clear(struct chunk *chunk)
 {
-	if (!chunk)
-		return;
-
-	/* clear lines */
 	line_array_clear(chunk->larr);
-
-	/* clear current line */
-	if (chunk->current_line.value)
-		line_free(&chunk->current_line);
+	chunk->larr_idx = 0;
 }
 
 
@@ -101,34 +100,49 @@ int chunk_sort_write(struct chunk *chunk, size_t nr_threads)
 }
 
 /**
+ * @brief Prepare chunk read.
+ * 
+ * @param chunk 		chunk
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ * @param chunk_size 		chunk size
+ */
+void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t chunk_size)
+{
+	/* rewind */
+	rewind(chunk->fp);
+
+	/* create buffered reader */
+	chunk->br = buffered_reader_create(chunk->fp, field_delim, key_field, chunk_size);
+
+	/* peek first line */
+	chunk_peek_line(chunk);
+}
+
+/**
  * @brief Peek a line from a chunk.
  * 
  * @param chunk 		chunk
- * @param line			line
- * @param len			line length
- * @param field_delim 		field delimiter
- * @param key_field 		key field
  */
-void chunk_peek_line(struct chunk *chunk, char **line, size_t *len, char field_delim, int key_field)
+void chunk_peek_line(struct chunk *chunk)
 {
-	size_t line_len;
+	/* read next lines */
+	if (chunk->larr_idx == chunk->larr->size) {
+		/* clear chunk */
+		chunk_clear(chunk);
 
-	/* get next line */
-	if (getline(line, len, chunk->fp) == -1) {
-		line_free(&chunk->current_line);
-		return;
+		/* read next lines */
+		buffered_reader_read_lines(chunk->br, chunk->larr);
+
+		/* no more lines */
+		if (chunk->larr->size == 0) {
+			chunk->current_line.value = NULL;
+			return;
+		}
 	}
 
-	/* grow current line if needed */
-	line_len = strlen(*line);
-	if (line_len > chunk->current_line.value_len)
-		chunk->current_line.value = xrealloc(chunk->current_line.value, line_len + 1);
-
-	/* copy line */
-	memcpy(chunk->current_line.value, *line, line_len + 1);
-
-	/* init line */
-	line_init(&chunk->current_line, chunk->current_line.value, line_len, field_delim, key_field);
+	/* peek line */
+	memcpy(&chunk->current_line, &chunk->larr->lines[chunk->larr_idx++], sizeof(struct line));
 }
 
 /**

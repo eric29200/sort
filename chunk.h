@@ -1,16 +1,18 @@
 #ifndef _CHUNK_H_
 #define _CHUNK_H_
 
-#include "line.h"
+#include "buffered_reader.h"
 
 /**
  * @brief Chunk.
  */
 struct chunk {
-	struct line_array *	larr;
-	FILE *			fp;
-	struct line 		current_line;
-	struct chunk *		next;
+	FILE *				fp;
+	struct line_array *		larr;
+	struct buffered_reader *	br;
+	size_t				larr_idx;
+	struct line 			current_line;
+	struct chunk *			next;
 };
 
 /**
@@ -45,15 +47,21 @@ void chunk_clear(struct chunk *chunk);
 int chunk_sort_write(struct chunk *chunk, size_t nr_threads);
 
 /**
+ * @brief Prepare chunk read.
+ * 
+ * @param chunk 		chunk
+ * @param field_delim 		field delimiter
+ * @param key_field 		key field
+ * @param chunk_size 		chunk size
+ */
+void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t chunk_size);
+
+/**
  * @brief Peek a line from a chunk.
  * 
  * @param chunk 		chunk
- * @param line			line
- * @param len			line length
- * @param field_delim 		field delimiter
- * @param key_field 		key field
  */
-void chunk_peek_line(struct chunk *chunk, char **line, size_t *len, char field_delim, int key_field);
+void chunk_peek_line(struct chunk *chunk);
 
 /**
  * @brief Get minimum line from a list of chunks.

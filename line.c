@@ -57,17 +57,6 @@ void line_init(struct line *line, char *value, size_t value_len, char field_deli
 }
 
 /**
- * @brief Free a line.
- * 
- * @param line 		line
- */
-void line_free(struct line *line)
-{
-	free(line->value);
-	line->value = NULL;
-}
-
-/**
  * @brief Compare 2 lines.
  * 
  * @param l1 		first line
@@ -103,9 +92,9 @@ struct line_array *line_array_create()
 	struct line_array *larr;
 
 	larr = (struct line_array *) xmalloc(sizeof(struct line_array));
-	larr->capacity = INITIAL_SIZE;
+	larr->capacity = 0;
 	larr->size = 0;
-	larr->lines = (struct line *) xmalloc(INITIAL_SIZE * sizeof(struct line));
+	larr->lines = NULL;
 
 	return larr;
 }
@@ -157,6 +146,8 @@ static void __line_array_grow(struct line_array *larr)
 
 	/* set new capacity */
 	larr->capacity = larr->capacity + (larr->capacity >> 1);
+	if (larr->capacity < INITIAL_SIZE)
+		larr->capacity = INITIAL_SIZE;
 	
 	/* reallocate lines */
 	larr->lines = (struct line *) xrealloc(larr->lines, sizeof(struct line) * larr->capacity);

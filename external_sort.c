@@ -94,18 +94,22 @@ err:
  * @param fp			output file
  * @param field_delim		field delimiter
  * @param key_field		key field
+ * @param chunk_size		chunk size
+ * 
+ * @return status
  */
-static void __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field)
+static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field, ssize_t chunk_size)
 {
+	size_t nr_chunks = 0;
 	struct chunk *chunk;
-	char *line = NULL;
-	size_t len;
 
-	/* peek a line from each buffer */
-	for (chunk = chunks; chunk != NULL; chunk = chunk->next) {
-		rewind(chunk->fp);
-		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
-	}
+	/* get number of chunks */
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
+		nr_chunks++;
+
+	/* prepare read */
+	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
+		chunk_prepare_read(chunk, field_delim, key_field, chunk_size / nr_chunks);
 
 	/* merge chunks */
 	for (;;) {
@@ -115,14 +119,14 @@ static void __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int k
 			break;
 
 		/* write line to output file */
-		fputs(chunk->current_line.value, fp);
+		if (fwrite(chunk->current_line.value, 1, chunk->current_line.value_len, fp) != chunk->current_line.value_len)
+			return -1;
 
 		/* peek a line from min chunk */
-		chunk_peek_line(chunk, &line, &len, field_delim, key_field);
+		chunk_peek_line(chunk);
 	}
 
-	/* free line */
-	xfree(line);
+	return 0;
 }
 
 /**
@@ -160,9 +164,7 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 		goto out;
 
 	/* merge sort */
-	__merge_sort(fp_out, chunks, field_delim, key_field);
-
-	ret = 0;
+	ret = __merge_sort(fp_out, chunks, field_delim, key_field, chunk_size);
 out:
 	/* free chunks */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)

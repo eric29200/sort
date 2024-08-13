@@ -35,13 +35,6 @@ struct line_array {
 void line_init(struct line *line, char *value, size_t value_len, char field_delim, int key_field);
 
 /**
- * @brief Free a line.
- * 
- * @param line 		line
- */
-void line_free(struct line *line);
-
-/**
  * @brief Compare 2 lines.
  * 
  * @param l1 		first line
