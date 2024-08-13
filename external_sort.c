@@ -1,3 +1,4 @@
+#include "chunk.h"
 #include "buffered_reader.h"
 #include "mem.h"
 
@@ -51,21 +52,19 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 
 	/* divide and sort */
 	for (;;) {
-		/* read next chunk */
-		chunk = buffered_reader_read_chunk(br);
-		if (!chunk)
+		/* create a new chunk */
+		chunk = chunk_create();
+
+		/* read chunk */
+		buffered_reader_read_lines(br, chunk->larr);
+		if (chunk->larr->size == 0) {
+			chunk_free(chunk);
 			break;
+		}
 
 		/* add chunk to list */
 		chunk->next = head;
 		head = chunk;
-
-		/* create tmp file */
-		chunk->fp = tmpfile();
-		if (!chunk->fp) {
-			fprintf(stderr, "Can't create temporary file\n");
-			goto err;
-		}
 
 		/* sort and write chunk */
 		ret = chunk_sort_write(chunk, nr_threads);

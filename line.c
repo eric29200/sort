@@ -312,3 +312,26 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	/* clear arguments */
 	pthread_mutex_destroy(&targ.lock);
 }
+
+/**
+ * @brief Write a line array on disk.
+ * 
+ * @param larr			line array
+ * @param fp			output file
+ *
+ * @return status
+ */
+int line_array_write(struct line_array *larr, FILE *fp)
+{
+	size_t i;
+
+	/* write chunk */
+	for (i = 0; i < larr->size; i++) {
+		if (fwrite(larr->lines[i].value, larr->lines[i].value_len, 1, fp) != 1) {
+			fprintf(stderr, "Can't write line array\n");
+			return -1;
+		}
+	}
+
+	return 0;
+}

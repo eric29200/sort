@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#include "chunk.h"
+#include "line.h"
 
 /**
  * @brief Buffered reader.
@@ -49,12 +49,11 @@ void buffered_reader_free(struct buffered_reader *br);
 void buffered_reader_read_header(struct buffered_reader *br, size_t header);
 
 /**
- * @brief Read next chunk.
+ * @brief Read next lines.
  * 
  * @param br 			buffered reader
- *
- * @return next chunk
+ * @param larr			lines array
  */
-struct chunk *buffered_reader_read_chunk(struct buffered_reader *br);
+void buffered_reader_read_lines(struct buffered_reader *br, struct line_array *larr);
 
 #endif

@@ -91,4 +91,14 @@ void line_array_add(struct line_array *larr, char *value, size_t value_len, char
  */
 void line_array_sort(struct line_array *larr, size_t nr_threads);
 
+/**
+ * @brief Write a line array on disk.
+ * 
+ * @param larr			line array
+ * @param fp			output file
+ *
+ * @return status
+ */
+int line_array_write(struct line_array *larr, FILE *fp);
+
 #endif

@@ -101,16 +101,14 @@ void buffered_reader_read_header(struct buffered_reader *br, size_t header)
 }
 
 /**
- * @brief Read next chunk.
+ * @brief Read next lines.
  * 
  * @param br 			buffered reader
- *
- * @return next chunk
+ * @param larr			lines array
  */
-struct chunk *buffered_reader_read_chunk(struct buffered_reader *br)
+void buffered_reader_read_lines(struct buffered_reader *br, struct line_array *larr)
 {
 	char *ptr = NULL, *s;
-	struct chunk *chunk;
 	size_t len;
 
 	/* copy last line */
@@ -119,15 +117,12 @@ struct chunk *buffered_reader_read_chunk(struct buffered_reader *br)
 	/* read next chunk */
 	len = fread(br->buf + br->off, 1, br->chunk_size - br->off, br->fp);
 	if (len <= 0)
-		return NULL;
+		return;
 
 	/* end buffer */
 	br->buf_len = br->off + len;
 	br->buf[br->buf_len] = 0;
 	br->off = 0;
-
-	/* create a new chunk */
-	chunk = chunk_create();
 
 	/* parse content */
 	for (s = br->buf; *s != 0;) {
@@ -139,13 +134,11 @@ struct chunk *buffered_reader_read_chunk(struct buffered_reader *br)
 			break;
 
 		/* add line */
-		line_array_add(chunk->larr, s, ptr - s + 1, br->field_delim, br->key_field);
+		line_array_add(larr, s, ptr - s + 1, br->field_delim, br->key_field);
 		s = ptr + 1;
 	}
 
 	/* save last line */
 	if (ptr && ptr > s)
 		br->off = ptr - s;
-
-	return chunk;
 }

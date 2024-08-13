@@ -71,20 +71,15 @@ void chunk_clear(struct chunk *chunk)
  */
 static int __chunk_write(struct chunk *chunk)
 {
-	size_t i;
-
-	if (!chunk)
-		return 0;
-
-	/* write chunk */
-	for (i = 0; i < chunk->larr->size; i++) {
-		if (fwrite(chunk->larr->lines[i].value, chunk->larr->lines[i].value_len, 1, chunk->fp) != 1) {
-			fprintf(stderr, "Can't write chunk\n");
-			return -1;
-		}
+	/* create temp file */
+	chunk->fp = tmpfile();
+	if (!chunk->fp) {
+		fprintf(stderr, "Can't create temporary file\n");
+		return -1;
 	}
 
-	return 0;
+	/* write lines */
+	return line_array_write(chunk->larr, chunk->fp);
 }
 
 /**

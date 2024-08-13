@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "chunk.h"
 #include "buffered_reader.h"
 #include "mem.h"
 
@@ -30,9 +29,9 @@
  */
 static int sort(const char *input_file, const char *output_file, char field_delim, int key_field, size_t header, size_t nr_threads)
 {
+	FILE *fp_in = NULL, *fp_out = NULL;
 	struct buffered_reader *br = NULL;
-	struct chunk *chunk = NULL;
-	FILE *fp_in = NULL;
+	struct line_array *larr = NULL;
 	int ret = -1;
 	size_t i;
 
@@ -54,28 +53,30 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 	/* read header */
 	buffered_reader_read_header(br, header);
 
-	/* read chunk */
-	chunk = buffered_reader_read_chunk(br);
-	if(!chunk)
-		goto out;
+	/* read lines */
+	larr = line_array_create();
+	buffered_reader_read_lines(br, larr);
 
 	/* open output file */
-	chunk->fp = fopen(output_file, "w");
-	if (!chunk->fp) {
+	fp_out = fopen(output_file, "w");
+	if (!fp_out) {
 		fprintf(stderr, "Can't open output file \"%s\"\n", output_file);
 		goto out;
 	}
 
 	/* write header */
 	for (i = 0; i < br->nr_header_lines; i++)
-		fputs(br->header_lines[i], chunk->fp);
+		fputs(br->header_lines[i], fp_out);
 
-	/* sort and write chunk */
-	ret = chunk_sort_write(chunk, nr_threads);
+	/* sort lines */
+	line_array_sort(larr, nr_threads);
+
+	/* write lines */
+	ret = line_array_write(larr, fp_out);
 out:
-	/* free chunk */
-	if (chunk)
-		chunk_free(chunk);
+	/* free lines */
+	if (larr)
+		line_array_free(larr);
 
 	/* free buffered reader */
 	if (br)
@@ -84,6 +85,10 @@ out:
 	/* close input file */
 	if (fp_in)
 		fclose(fp_in);
+	
+	/* close output file */
+	if (fp_out)
+		fclose(fp_out);
 
 	return ret;
 }
