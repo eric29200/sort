@@ -27,7 +27,7 @@ struct thread_sort_arg {
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, char *value, size_t value_len, char field_delim, int key_field)
+void line_init(struct line *line, char *value, int value_len, char field_delim, int key_field)
 {
 	char *kend;
 

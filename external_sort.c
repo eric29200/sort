@@ -102,6 +102,7 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 {
 	size_t nr_chunks = 0;
 	struct chunk *chunk;
+	int len;
 
 	/* get number of chunks */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
@@ -119,7 +120,8 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 			break;
 
 		/* write line to output file */
-		if (fwrite(chunk->current_line.value, 1, chunk->current_line.value_len, fp) != chunk->current_line.value_len)
+		len = (int) fwrite(chunk->current_line.value, 1, chunk->current_line.value_len, fp);
+		if (len != chunk->current_line.value_len)
 			return -1;
 
 		/* peek a line from min chunk */

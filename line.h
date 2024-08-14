@@ -8,9 +8,9 @@
  */
 struct line {
 	char *			value;
-	size_t			value_len;
+	int			value_len;
 	char *			key;
-	size_t 			key_len;
+	int 			key_len;
 };
 
 /**
@@ -32,7 +32,7 @@ struct line_array {
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  */
-void line_init(struct line *line, char *value, size_t value_len, char field_delim, int key_field);
+void line_init(struct line *line, char *value, int value_len, char field_delim, int key_field);
 
 /**
  * @brief Compare 2 lines.
