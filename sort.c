@@ -46,12 +46,9 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 	}
 
 	/* create buffered reader */
-	br = buffered_reader_create(fp_in, field_delim, key_field, 0);
+	br = buffered_reader_create(fp_in, field_delim, key_field, header, 0);
 	if (!br)
 		goto out;
-
-	/* read header */
-	buffered_reader_read_header(br, header);
 
 	/* read lines */
 	larr = line_array_create();

@@ -41,12 +41,11 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 	}
 
 	/* create buffered reader */
-	br = buffered_reader_create(fp_in, field_delim, key_field, chunk_size);
+	br = buffered_reader_create(fp_in, field_delim, key_field, header, chunk_size);
 	if (!br)
 		goto err;
 
-	/* read/write header */
-	buffered_reader_read_header(br, header);
+	/* write header */
 	for (i = 0; i < br->nr_header_lines; i++)
 		fputs(br->header_lines[i], fp_out);
 

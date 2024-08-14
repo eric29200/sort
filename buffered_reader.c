@@ -7,16 +7,41 @@
 #include "mem.h"
 
 /**
+ * @brief Read header.
+ * 
+ * @param br 			buffered reader
+ * @param header 		number of header lines
+ */
+static void __read_header(struct buffered_reader *br, size_t header)
+{
+	char *line = NULL;
+	size_t len = 0, i;
+
+	/* allocate header lines */
+	br->header_lines = (char **) xmalloc(header * sizeof(char *));
+
+	/* read header lines */
+	for (i = 0; i < header; i++) {
+		if (getline(&line, &len, br->fp) == -1)
+			break;
+
+		br->header_lines[br->nr_header_lines++] = xstrdup(line);
+	}
+}
+
+
+/**
  * @brief Create a buffered reader.
  * 
  * @param fp			input file
  * @param field_delim		field delimiter
  * @param key_field		key field
+ * @param header		number of header lines
  * @param chunk_size		chunk size
  * 
  * @return buffered reader
  */
-struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, ssize_t chunk_size)
+struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, size_t header, ssize_t chunk_size)
 {
 	struct buffered_reader *br;
 	struct stat st;
@@ -32,6 +57,10 @@ struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int k
 	br->off = 0;
 	br->header_lines = NULL;
 	br->nr_header_lines = 0;
+	
+	/* read header */
+	if (header > 0)
+		__read_header(br, header);
 
 	/* fix chunk size */
 	if (chunk_size <= 0) {
@@ -75,29 +104,6 @@ void buffered_reader_free(struct buffered_reader *br)
 	/* free memory */
 	xfree(br->buf);
 	free(br);
-}
-
-/**
- * @brief Read header.
- * 
- * @param br 			buffered reader
- * @param header 		number of header lines
- */
-void buffered_reader_read_header(struct buffered_reader *br, size_t header)
-{
-	char *line = NULL;
-	size_t len = 0, i;
-
-	/* allocate header lines */
-	br->header_lines = (char **) xmalloc(header * sizeof(char *));
-
-	/* read header lines */
-	for (i = 0; i < header; i++) {
-		if (getline(&line, &len, br->fp) == -1)
-			break;
-
-		br->header_lines[br->nr_header_lines++] = xstrdup(line);
-	}
 }
 
 /**

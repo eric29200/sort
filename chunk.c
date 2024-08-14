@@ -113,7 +113,7 @@ void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ss
 	rewind(chunk->fp);
 
 	/* create buffered reader */
-	chunk->br = buffered_reader_create(chunk->fp, field_delim, key_field, chunk_size);
+	chunk->br = buffered_reader_create(chunk->fp, field_delim, key_field, 0, chunk_size);
 
 	/* peek first line */
 	chunk_peek_line(chunk);
