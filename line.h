@@ -11,7 +11,7 @@ struct line {
 	int			value_len;
 	char *			key;
 	int 			key_len;
-};
+} __attribute__((packed));
 
 /**
  * @brief Line array structure.
