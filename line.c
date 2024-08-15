@@ -85,16 +85,24 @@ int line_compare(const void *l1, const void *l2)
 /**
  * @brief Create a line array.
  * 
+ * @param capacity	initial capacity
+ * 
  * @return line array
  */
-struct line_array *line_array_create()
+struct line_array *line_array_create(size_t capacity)
 {
 	struct line_array *larr;
 
+	/* create array */
 	larr = (struct line_array *) xmalloc(sizeof(struct line_array));
-	larr->capacity = 0;
+	larr->capacity = capacity;
 	larr->size = 0;
-	larr->lines = NULL;
+
+	/* allocate array */
+	if (capacity)
+		larr->lines = (struct line *) xmalloc(sizeof(struct line) * capacity);
+	else
+		larr->lines = NULL;
 
 	return larr;
 }
@@ -109,7 +117,7 @@ void line_array_free(struct line_array *larr)
 	if (!larr)
 		return;
 
-	line_array_clear(larr);
+	line_array_clear_full(larr);
 	free(larr);
 }
 
@@ -118,7 +126,7 @@ void line_array_free(struct line_array *larr)
  * 
  * @param larr 		line array
  */
-void line_array_clear(struct line_array *larr)
+void line_array_clear_full(struct line_array *larr)
 {
 	if (!larr)
 		return;
@@ -141,6 +149,7 @@ void line_array_clear(struct line_array *larr)
  */
 static void __line_array_grow(struct line_array *larr)
 {
+	/* no need to grow */
 	if (larr->size != larr->capacity)
 		return;
 
@@ -164,9 +173,6 @@ static void __line_array_grow(struct line_array *larr)
  */
 void line_array_add(struct line_array *larr, char *value, size_t value_len, char field_delim, int key_field)
 {
-	if (!larr || !value)
-		return;
-
 	/* grow lines array if needed */
 	__line_array_grow(larr);
 
@@ -272,7 +278,7 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	/* create buckets */
 	targ.buckets = (struct line_array **) xmalloc(NR_BUCKETS * sizeof(struct line_array *));
 	for (i = 0; i < NR_BUCKETS; i++)
-		targ.buckets[i] = line_array_create();
+		targ.buckets[i] = line_array_create(0);
 
 	/* populate buckets */
 	for (i = 0; i < larr->size; i++)

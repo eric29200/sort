@@ -47,9 +47,11 @@ int line_compare(const void *l1, const void *l2);
 /**
  * @brief Create a line array.
  * 
+ * @param capacity	initial capacity
+ * 
  * @return line array
  */
-struct line_array *line_array_create();
+struct line_array *line_array_create(size_t capacity);
 
 /**
  * @brief Free a line array.
@@ -59,11 +61,11 @@ struct line_array *line_array_create();
 void line_array_free(struct line_array *larr);
 
 /**
- * @brief Clear a line array.
+ * @brief Clear a line array (free lines).
  * 
  * @param larr 		line array
  */
-void line_array_clear(struct line_array *larr);
+void line_array_clear_full(struct line_array *larr);
 
 /**
  * @brief Add a line.

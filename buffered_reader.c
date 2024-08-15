@@ -29,6 +29,35 @@ static void __read_header(struct buffered_reader *br, size_t header)
 	}
 }
 
+/**
+ * @brief Estimate line length.
+ * 
+ * @param br 			buffered reader
+ *
+ * @return line length
+ */
+static size_t __estimate_line_length(struct buffered_reader *br)
+{
+	char *line = NULL;
+	ssize_t line_len;
+	size_t len;
+
+	/* read first line */
+	line_len = getline(&line, &len, br->fp);
+	if (line_len <= 0) {
+		line_len = 0;
+		goto out;
+	}
+
+	/* rewind */
+	fseek(br->fp, -line_len, SEEK_CUR);
+
+out:
+	/* free memory */
+	xfree(line);
+
+	return line_len;
+}
 
 /**
  * @brief Create a buffered reader.
@@ -37,11 +66,11 @@ static void __read_header(struct buffered_reader *br, size_t header)
  * @param field_delim		field delimiter
  * @param key_field		key field
  * @param header		number of header lines
- * @param chunk_size		chunk size
+ * @param memory_size		memory size
  * 
  * @return buffered reader
  */
-struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, size_t header, ssize_t chunk_size)
+struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, size_t header, ssize_t memory_size)
 {
 	struct buffered_reader *br;
 	struct stat st;
@@ -50,7 +79,6 @@ struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int k
 	br = (struct buffered_reader *) xmalloc(sizeof(struct buffered_reader));
 	br->field_delim = field_delim;
 	br->key_field = key_field;
-	br->chunk_size = chunk_size;
 	br->fp = fp;
 	br->buf = NULL;
 	br->buf_len = 0;
@@ -62,18 +90,27 @@ struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int k
 	if (header > 0)
 		__read_header(br, header);
 
-	/* fix chunk size */
-	if (chunk_size <= 0) {
+	/* estimate line length */
+	br->line_len = __estimate_line_length(br);
+	if (br->line_len <= 0) {
+		fprintf(stderr, "Can't estimate line length\n");
+		goto err;
+	}
+
+	/* set buffer capacity */
+	if (memory_size <= 0) {
 		if (fstat(fileno(br->fp), &st)) {
 			fprintf(stderr, "Can't stat input file\n");
 			goto err;
 		}
 
-		br->chunk_size = st.st_size;
+		br->buf_capacity = st.st_size;
+	} else {
+		br->buf_capacity = memory_size - (memory_size / br->line_len) * sizeof(struct line);
 	}
 
 	/* allocate buffer */
-	br->buf = (char *) xmalloc(br->chunk_size + 1);
+	br->buf = (char *) xmalloc(br->buf_capacity + 1);
 
 	return br;
 err:
@@ -121,7 +158,7 @@ void buffered_reader_read_lines(struct buffered_reader *br, struct line_array *l
 	memcpy(br->buf, br->buf + br->buf_len - br->off, br->off);
 
 	/* read next chunk */
-	len = fread(br->buf + br->off, 1, br->chunk_size - br->off, br->fp);
+	len = fread(br->buf + br->off, 1, br->buf_capacity - br->off, br->fp);
 	if (len <= 0)
 		return;
 
@@ -141,6 +178,8 @@ void buffered_reader_read_lines(struct buffered_reader *br, struct line_array *l
 
 		/* add line */
 		line_array_add(larr, s, ptr - s + 1, br->field_delim, br->key_field);
+
+		/* go to next line */
 		s = ptr + 1;
 	}
 

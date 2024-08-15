@@ -7,14 +7,16 @@
 /**
  * @brief Create a chunk.
  * 
+ * @param capacity	capacity
+ * 
  * @return chunk
  */
-struct chunk *chunk_create()
+struct chunk *chunk_create(size_t capacity)
 {
 	struct chunk *chunk;
 
 	chunk = (struct chunk *) xmalloc(sizeof(struct chunk));
-	chunk->larr = line_array_create();
+	chunk->larr = line_array_create(capacity);
 	chunk->current_line.value = NULL;
 	chunk->current_line.value_len = 0;
 	chunk->fp = NULL;
@@ -44,22 +46,21 @@ void chunk_free(struct chunk *chunk)
 		buffered_reader_free(chunk->br);
 
 	/* free memory */
-	chunk_clear(chunk);
+	chunk_clear_full(chunk);
 	line_array_free(chunk->larr);
 	free(chunk);
 }
 
 /**
- * @brief Clear a chunk.
+ * @brief Clear a chunk (free lines array).
  * 
  * @param chunk 		chunk
  */
-void chunk_clear(struct chunk *chunk)
+void chunk_clear_full(struct chunk *chunk)
 {
-	line_array_clear(chunk->larr);
+	line_array_clear_full(chunk->larr);
 	chunk->larr_idx = 0;
 }
-
 
 /**
  * @brief Write a chunk on disk.
@@ -105,15 +106,22 @@ int chunk_sort_write(struct chunk *chunk, size_t nr_threads)
  * @param chunk 		chunk
  * @param field_delim 		field delimiter
  * @param key_field 		key field
- * @param chunk_size 		chunk size
+ * @param memory_size		memory size
  */
-void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t chunk_size)
+void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t memory_size)
 {
 	/* rewind */
 	rewind(chunk->fp);
 
 	/* create buffered reader */
-	chunk->br = buffered_reader_create(chunk->fp, field_delim, key_field, 0, chunk_size);
+	chunk->br = buffered_reader_create(chunk->fp, field_delim, key_field, 0, memory_size);
+
+	/* clear chunk */
+	chunk_clear_full(chunk);
+
+	/* allocate lines array */
+	chunk->larr->capacity = memory_size / chunk->br->line_len;
+	chunk->larr->lines = (struct line *) xmalloc(sizeof(struct line) * chunk->larr->capacity);
 
 	/* peek first line */
 	chunk_peek_line(chunk);
@@ -128,8 +136,9 @@ void chunk_peek_line(struct chunk *chunk)
 {
 	/* read next lines */
 	if (chunk->larr_idx == chunk->larr->size) {
-		/* clear chunk */
-		chunk_clear(chunk);
+		/* reset line array */
+		chunk->larr->size = 0;
+		chunk->larr_idx = 0;
 
 		/* read next lines */
 		buffered_reader_read_lines(chunk->br, chunk->larr);

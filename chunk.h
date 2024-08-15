@@ -17,10 +17,12 @@ struct chunk {
 
 /**
  * @brief Create a chunk.
+ *
+ * @param capacity	capacity
  * 
  * @return chunk
  */
-struct chunk *chunk_create();
+struct chunk *chunk_create(size_t capacity);
 
 /**
  * @brief Free a chunk.
@@ -30,11 +32,11 @@ struct chunk *chunk_create();
 void chunk_free(struct chunk *chunk);
 
 /**
- * @brief Clear a chunk.
+ * @brief Clear a chunk (free lines).
  * 
  * @param chunk 		chunk
  */
-void chunk_clear(struct chunk *chunk);
+void chunk_clear_full(struct chunk *chunk);
 
 /**
  * @brief Sort and write a chunk on disk.
@@ -52,9 +54,9 @@ int chunk_sort_write(struct chunk *chunk, size_t nr_threads);
  * @param chunk 		chunk
  * @param field_delim 		field delimiter
  * @param key_field 		key field
- * @param chunk_size 		chunk size
+ * @param memory_size		memory size
  */
-void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t chunk_size);
+void chunk_prepare_read(struct chunk *chunk, char field_delim, int key_field, ssize_t memory_size);
 
 /**
  * @brief Peek a line from a chunk.

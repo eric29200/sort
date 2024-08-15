@@ -12,13 +12,14 @@
 struct buffered_reader {
 	char			field_delim;
 	int			key_field;
-	ssize_t			chunk_size;
 	FILE *			fp;
 	char *			buf;
 	size_t			buf_len;
+	size_t			buf_capacity;
 	size_t			off;
 	char **			header_lines;
 	size_t			nr_header_lines;
+	size_t			line_len;
 };
 
 /**
@@ -28,11 +29,11 @@ struct buffered_reader {
  * @param field_delim		field delimiter
  * @param key_field		key field
  * @param header		number of header lines
- * @param chunk_size		chunk size
+ * @param memory_size		memory size
  * 
  * @return buffered reader
  */
-struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, size_t header, ssize_t chunk_size);
+struct buffered_reader *buffered_reader_create(FILE *fp, char field_delim, int key_field, size_t header, ssize_t memory_size);
 
 /**
  * @brief Free a buffered reader.

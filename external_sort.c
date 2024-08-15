@@ -9,15 +9,15 @@
 #define HEADER			1
 #define NR_THREADS		8
 
-/* default chunk size */
-static ssize_t chunk_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
+/* default memory size */
+static ssize_t memory_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /**
  * @brief Divide and sort a file.
  * 
  * @param input_file		input file
  * @param fp_out		output file
- * @param chunk_size 		chunk size
+ * @param memory_size		memory size
  * @param field_delim		field delimiter
  * @param key_field		key field
  * @param header		number of header lines
@@ -25,7 +25,7 @@ static ssize_t chunk_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
  *
  * @return chunks
  */
-static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssize_t chunk_size, char field_delim, int key_field, size_t header, size_t nr_threads)
+static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssize_t memory_size, char field_delim, int key_field, size_t header, size_t nr_threads)
 {
 	struct chunk *head = NULL, *chunk;
 	struct buffered_reader *br = NULL;
@@ -41,7 +41,7 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 	}
 
 	/* create buffered reader */
-	br = buffered_reader_create(fp_in, field_delim, key_field, header, chunk_size);
+	br = buffered_reader_create(fp_in, field_delim, key_field, header, memory_size);
 	if (!br)
 		goto err;
 
@@ -52,7 +52,7 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 	/* divide and sort */
 	for (;;) {
 		/* create a new chunk */
-		chunk = chunk_create();
+		chunk = chunk_create(memory_size / br->line_len);
 
 		/* read chunk */
 		buffered_reader_read_lines(br, chunk->larr);
@@ -71,7 +71,7 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 			goto err;
 
 		/* clear chunk */
-		chunk_clear(chunk);
+		chunk_clear_full(chunk);
 	}
 
 	return head;
@@ -93,11 +93,11 @@ err:
  * @param fp			output file
  * @param field_delim		field delimiter
  * @param key_field		key field
- * @param chunk_size		chunk size
+ * @param memory_size		memory size
  * 
  * @return status
  */
-static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field, ssize_t chunk_size)
+static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int key_field, ssize_t memory_size)
 {
 	size_t nr_chunks = 0;
 	struct chunk *chunk;
@@ -109,7 +109,7 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
 
 	/* prepare read */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
-		chunk_prepare_read(chunk, field_delim, key_field, chunk_size / nr_chunks);
+		chunk_prepare_read(chunk, field_delim, key_field, memory_size / nr_chunks);
 
 	/* merge chunks */
 	for (;;) {
@@ -135,7 +135,7 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
  * 
  * @param input_file 		input file
  * @param output_file 		output file
- * @param chunk_size 		chunk size
+ * @param memory_size		memory size
  * @param field_delim 		field delimiter
  * @param key_field 		key field
  * @param header 		number of header lines
@@ -143,7 +143,7 @@ static int __merge_sort(FILE *fp, struct chunk *chunks, char field_delim, int ke
  *
  * @return status
  */
-static int sort(const char *input_file, const char *output_file, ssize_t chunk_size, char field_delim, int key_field, size_t header, size_t nr_threads)
+static int sort(const char *input_file, const char *output_file, ssize_t memory_size, char field_delim, int key_field, size_t header, size_t nr_threads)
 {
 	struct chunk *chunks = NULL, *chunk;
 	FILE *fp_out = NULL;
@@ -160,12 +160,12 @@ static int sort(const char *input_file, const char *output_file, ssize_t chunk_s
 	}
 	
 	/* divide and sort */
-	chunks = __divide_and_sort(input_file, fp_out, chunk_size, field_delim, key_field, header, nr_threads);
+	chunks = __divide_and_sort(input_file, fp_out, memory_size, field_delim, key_field, header, nr_threads);
 	if (!chunks)
 		goto out;
 
 	/* merge sort */
-	ret = __merge_sort(fp_out, chunks, field_delim, key_field, chunk_size);
+	ret = __merge_sort(fp_out, chunks, field_delim, key_field, memory_size);
 out:
 	/* free chunks */
 	for (chunk = chunks; chunk != NULL; chunk = chunk->next)
@@ -180,5 +180,5 @@ out:
 
 int main()
 {
-	return sort(INPUT_FILE, OUTPUT_FILE, chunk_size, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
+	return sort(INPUT_FILE, OUTPUT_FILE, memory_size, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }
