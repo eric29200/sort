@@ -21,6 +21,7 @@ struct line_array {
 	struct line *		lines;
 	size_t			size;
 	size_t			capacity;
+	char			grow_slow;
 };
 
 /**
@@ -48,10 +49,11 @@ int line_compare(const void *l1, const void *l2);
  * @brief Create a line array.
  * 
  * @param capacity	initial capacity
+ * @param grow_slow	grow slow ?
  * 
  * @return line array
  */
-struct line_array *line_array_create(size_t capacity);
+struct line_array *line_array_create(size_t capacity, char grow_slow);
 
 /**
  * @brief Free a line array.

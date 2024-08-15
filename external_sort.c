@@ -1,3 +1,5 @@
+#include <sys/resource.h>
+
 #include "chunk.h"
 #include "buffered_reader.h"
 #include "mem.h"
@@ -10,7 +12,7 @@
 #define NR_THREADS		8
 
 /* default memory size */
-static ssize_t memory_size = (ssize_t) 100 * (ssize_t) 1024 * (ssize_t) 1024;
+static ssize_t memory_size = (ssize_t) 512 * (ssize_t) 1024 * (ssize_t) 1024;
 
 /**
  * @brief Divide and sort a file.
@@ -180,5 +182,12 @@ out:
 
 int main()
 {
-	return sort(INPUT_FILE, OUTPUT_FILE, memory_size, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
+	struct rlimit rlim;
+
+	/* limit memory */
+	rlim.rlim_cur = rlim.rlim_max = memory_size;
+	setrlimit(RLIMIT_AS, &rlim);
+
+	/* sort */
+	return sort(INPUT_FILE, OUTPUT_FILE, memory_size / 3, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }

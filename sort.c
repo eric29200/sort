@@ -51,7 +51,7 @@ static int sort(const char *input_file, const char *output_file, char field_deli
 		goto out;
 
 	/* read lines */
-	larr = line_array_create(0);
+	larr = line_array_create(0, 0);
 	buffered_reader_read_lines(br, larr);
 
 	/* open output file */

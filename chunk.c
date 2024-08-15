@@ -16,7 +16,7 @@ struct chunk *chunk_create(size_t capacity)
 	struct chunk *chunk;
 
 	chunk = (struct chunk *) xmalloc(sizeof(struct chunk));
-	chunk->larr = line_array_create(capacity);
+	chunk->larr = line_array_create(capacity, 1);
 	chunk->current_line.value = NULL;
 	chunk->current_line.value_len = 0;
 	chunk->fp = NULL;
