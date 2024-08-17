@@ -241,7 +241,7 @@ static void __qsort(struct line *lines, size_t nr_lines)
  *
  * @return status
  */
-static void *__line_array_sort_thread(void *arg)
+static void *__sort_thread(void *arg)
 {
 	struct thread_sort_arg *targ = (struct thread_sort_arg *) arg;
 	struct line_array *larr;
@@ -272,6 +272,36 @@ end:
 }
 
 /**
+ * @brief Create buckets.
+ * 
+ * @param larr 		line array
+ *
+ * @return buckets
+ */
+static struct line_array **__create_buckets(struct line_array *larr)
+{
+	int counts[NR_BUCKETS] = { 0 };
+	struct line_array **buckets;
+	size_t i;
+
+	/* compute sizes of buckets */
+	memset(counts, 0, sizeof(int) * NR_BUCKETS);
+	for (i = 0; i < larr->size; i++)
+		counts[(unsigned char) larr->lines[i].key[0]]++;
+
+	/* create buckets */
+	buckets = (struct line_array **) xmalloc(NR_BUCKETS * sizeof(struct line_array *));
+	for (i = 0; i < NR_BUCKETS; i++)
+		buckets[i] = counts[i] > 0 ? line_array_create(counts[i], 1) : NULL;
+
+	/* populate buckets */
+	for (i = 0; i < larr->size; i++)
+		__line_array_add(buckets[(unsigned char) larr->lines[i].key[0]], &larr->lines[i]);
+
+	return buckets;
+}
+
+/**
  * @brief Sort a line array.
  * 
  * @param larr		line array
@@ -293,22 +323,14 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	for (i = 0; i < larr->size; i++)
 		counts[(unsigned char) larr->lines[i].key[0]]++;
 
-	/* create buckets */
-	targ.buckets = (struct line_array **) xmalloc(NR_BUCKETS * sizeof(struct line_array *));
-	for (i = 0; i < NR_BUCKETS; i++)
-		targ.buckets[i] = counts[i] > 0 ? line_array_create(counts[i], 1) : NULL;
-
-	/* populate buckets */
-	for (i = 0; i < larr->size; i++)
-		__line_array_add(targ.buckets[(unsigned char) larr->lines[i].key[0]], &larr->lines[i]);
-
 	/* init threads arguments */
+	targ.buckets = __create_buckets(larr);
 	targ.i = 0;
 	pthread_mutex_init(&targ.lock, NULL);
 
 	/* create threads */
 	for (i = 0; i < nr_threads; i++)
-		pthread_create(&threads[i], NULL, __line_array_sort_thread, &targ);
+		pthread_create(&threads[i], NULL, __sort_thread, &targ);
 	
 	/* wait for threads */
 	for (i = 0; i < nr_threads; i++)
@@ -325,8 +347,6 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 		if (targ.buckets[i])
 			line_array_free(targ.buckets[i]);
 	xfree(targ.buckets);
-	
-	/* clear arguments */
 	pthread_mutex_destroy(&targ.lock);
 }
 
