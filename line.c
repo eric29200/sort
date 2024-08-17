@@ -298,7 +298,7 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	/* create buckets */
 	targ.buckets = (struct line_array **) xmalloc(NR_BUCKETS * sizeof(struct line_array *));
 	for (i = 0; i < NR_BUCKETS; i++)
-		targ.buckets[i] = line_array_create(counts[i], 1);
+		targ.buckets[i] = counts[i] > 0 ? line_array_create(counts[i], 1) : NULL;
 
 	/* populate buckets */
 	for (i = 0; i < larr->size; i++)
@@ -318,12 +318,14 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	
 	/* merge buckets */
 	for (i = 0, k = 0; i < NR_BUCKETS; i++)
-		for (j = 0; j < targ.buckets[i]->size; j++)
-			larr->lines[k++] = targ.buckets[i]->lines[j];
+		if (targ.buckets[i])
+			for (j = 0; j < targ.buckets[i]->size; j++)
+				larr->lines[k++] = targ.buckets[i]->lines[j];
 
 	/* free buckets */
 	for (i = 0; i < NR_BUCKETS; i++)
-		line_array_free(targ.buckets[i]);
+		if (targ.buckets[i])
+			line_array_free(targ.buckets[i]);
 	xfree(targ.buckets);
 	
 	/* clear arguments */
