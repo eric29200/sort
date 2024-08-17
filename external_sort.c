@@ -60,7 +60,7 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 		buffered_reader_read_lines(br, chunk->larr);
 		if (chunk->larr->size == 0) {
 			chunk_free(chunk);
-			break;
+			goto out;
 		}
 
 		/* add chunk to list */
@@ -76,17 +76,22 @@ static struct chunk *__divide_and_sort(const char *input_file, FILE *fp_out, ssi
 		chunk_clear_full(chunk);
 	}
 
-	return head;
 err:
 	/* free chunks */
 	for (chunk = head; chunk != NULL; chunk = chunk->next)
 		chunk_free(chunk);
 
+	head = NULL;
+out:
+	/* free buffered reader */
+	if (br)
+		buffered_reader_free(br);
+
 	/* close input file */
 	if (fp_in)
 		fclose(fp_in);
 
-	return NULL;
+	return head;
 }
 
 /**
@@ -189,5 +194,5 @@ int main()
 	setrlimit(RLIMIT_AS, &rlim);
 
 	/* sort */
-	return sort(INPUT_FILE, OUTPUT_FILE, memory_size / 3, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
+	return sort(INPUT_FILE, OUTPUT_FILE, memory_size / 2, FIELD_DELIM, KEY_FIELD, HEADER, NR_THREADS);
 }
