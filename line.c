@@ -59,15 +59,13 @@ void line_init(struct line *line, char *value, int value_len, char field_delim, 
 /**
  * @brief Compare 2 lines.
  * 
- * @param l1 		first line
- * @param l2 		second line
+ * @param line1 	first line
+ * @param line2 	second line
  *
  * @return comparison result
  */
-int line_compare(const void *l1, const void *l2)
+int line_compare(const struct line *line1, const struct line *line2)
 {
-	struct line *line1 = (struct line *) l1;
-	struct line *line2 = (struct line *) l2;
 	size_t len;
 	int ret;
 
