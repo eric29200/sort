@@ -310,7 +310,6 @@ static struct line_array **__create_buckets(struct line_array *larr)
 void line_array_sort(struct line_array *larr, size_t nr_threads)
 {
 	pthread_t threads[nr_threads < 1 ? 1 : nr_threads];
-	int counts[NR_BUCKETS] = { 0 };
 	struct thread_sort_arg targ;
 	size_t i, j, k;
 
@@ -318,11 +317,6 @@ void line_array_sort(struct line_array *larr, size_t nr_threads)
 	if (nr_threads < 1)
 		nr_threads = 1;
 	
-	/* compute sizes of buckets */
-	memset(counts, 0, sizeof(int) * NR_BUCKETS);
-	for (i = 0; i < larr->size; i++)
-		counts[(unsigned char) larr->lines[i].key[0]]++;
-
 	/* init threads arguments */
 	targ.buckets = __create_buckets(larr);
 	targ.i = 0;
